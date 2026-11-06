@@ -80,7 +80,8 @@ private enum PS3BootImageStoreSmokeTest {
             from: FakeDisc(executable: firstImage, executableName: "EBOOT.ELF", paramsfo: sfo),
             into: directory
         )
-        precondition(try Data(contentsOf: sfoURL) == sfo,
+        let extractedSFO = try Data(contentsOf: sfoURL)
+        precondition(extractedSFO == sfo,
                      "PARAM.SFO must be extracted intact for cellGame metadata")
 
         print("PS3 boot image store smoke test passed")
