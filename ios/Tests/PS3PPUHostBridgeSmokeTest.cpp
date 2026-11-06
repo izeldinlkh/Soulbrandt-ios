@@ -50,6 +50,8 @@ extern "C" uint32_t ppu_load_elf(const char *path)
     ++g_load_calls;
     return g_load_calls == 1 ? 0x1000u : 0x2000u;
 }
+extern "C" void cellGame_init_from_paramsfo(const char *path) { assert(path && std::strlen(path) > 0); ++g_paramsfo_init_calls; }
+extern "C" int ppu_run(uint32_t, uint32_t) { return 0; }
 extern "C" void ppu_recomp_register(void) { ++g_recomp_register_calls; }
 extern "C" void ppu_hle_init(void) { ++g_hle_init_calls; }
 extern "C" void ppu_sysprx_register(void) { ++g_sysprx_register_calls; }
@@ -76,9 +78,12 @@ int main()
     assert(std::strcmp(std::getenv("PS3_HDD0_ROOT"), "/tmp/soulbrandt-test-hdd0") == 0);
     assert(std::strcmp(std::getenv("PS3_HDD1_ROOT"), "/tmp/soulbrandt-test-hdd1") == 0);
 
+    assert(soulbrandt_ppu_host_init_title_metadata("/disc/PS3_GAME/PARAM.SFO") == 0);
+    assert(g_paramsfo_init_calls == 1);
     g_memory_ready = true;
     assert(soulbrandt_ppu_host_load_elf("/disc/EBOOT.ELF") == 0x1000u);
     assert(soulbrandt_ppu_host_is_ready() == 1);
+    assert(soulbrandt_ppu_host_init_title_metadata("/other/PARAM.SFO") == -1);
     assert(soulbrandt_ppu_host_function_count() == 42);
     assert(soulbrandt_ppu_host_hle_count() == 84);
     assert(g_ps3_guest_caller != nullptr);
