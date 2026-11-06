@@ -3,22 +3,30 @@ import Foundation
 private struct FakeDisc: DiscImageFileSystem {
     let executable: Data
     let executableName: String
+    let paramsfo: Data?
     var filesystemName: String { "Fake" }
 
     func entries(path: String) throws -> [DiscImageEntry] {
         if path == "/PS3_GAME/USRDIR" {
             return [DiscImageEntry(name: executableName, isDirectory: false)]
         }
+        if path == "/PS3_GAME", paramsfo != nil {
+            return [DiscImageEntry(name: "PARAM.SFO", isDirectory: false)]
+        }
         return []
     }
 
-    func fileSize(path: String) throws -> UInt64 { UInt64(executable.count) }
+    func fileSize(path: String) throws -> UInt64 {
+        path.uppercased().hasSuffix("PARAM.SFO")
+            ? UInt64(paramsfo?.count ?? 0) : UInt64(executable.count)
+    }
 
     func readFile(path: String, offset: UInt64, length: Int) throws -> Data {
-        guard offset <= UInt64(executable.count), length >= 0 else { return Data() }
+        let source = path.uppercased().hasSuffix("PARAM.SFO") ? (paramsfo ?? Data()) : executable
+        guard offset <= UInt64(source.count), length >= 0 else { return Data() }
         let start = Int(offset)
-        let end = min(executable.count, start + length)
-        return executable.subdata(in: start..<end)
+        let end = min(source.count, start + length)
+        return source.subdata(in: start..<end)
     }
 }
 
@@ -45,7 +53,7 @@ private enum PS3BootImageStoreSmokeTest {
 
         let firstImage = makeELF(payload: Array(UInt8(0)..<UInt8(17)))
         let firstURL = try PS3BootImageStore.extract(
-            from: FakeDisc(executable: firstImage, executableName: "EBOOT.ELF"),
+            from: FakeDisc(executable: firstImage, executableName: "EBOOT.ELF", paramsfo: nil),
             into: directory
         )
         precondition(firstURL == destination)
@@ -56,7 +64,7 @@ private enum PS3BootImageStoreSmokeTest {
         let encrypted = Data([0x53, 0x43, 0x45, 0x00] + Array(repeating: UInt8(0), count: 60))
         do {
             _ = try PS3BootImageStore.extract(
-                from: FakeDisc(executable: encrypted, executableName: "EBOOT.BIN"),
+                from: FakeDisc(executable: encrypted, executableName: "EBOOT.BIN", paramsfo: nil),
                 into: directory
             )
             fatalError("SELF image should not be accepted")
@@ -66,6 +74,14 @@ private enum PS3BootImageStoreSmokeTest {
         let secondRead = try Data(contentsOf: destination)
         precondition(secondRead == firstImage,
                      "Rejected input must not damage the previous output")
+
+        let sfo = Data([0x00, 0x50, 0x53, 0x46] + Array(repeating: UInt8(0), count: 20))
+        let sfoURL = try PS3BootImageStore.extractParamsfo(
+            from: FakeDisc(executable: firstImage, executableName: "EBOOT.ELF", paramsfo: sfo),
+            into: directory
+        )
+        precondition(try Data(contentsOf: sfoURL) == sfo,
+                     "PARAM.SFO must be extracted intact for cellGame metadata")
 
         print("PS3 boot image store smoke test passed")
     }
