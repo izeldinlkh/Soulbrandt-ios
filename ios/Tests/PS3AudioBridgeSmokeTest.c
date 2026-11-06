@@ -36,7 +36,13 @@ int main(void)
     assert(output[0] == large[0] && output[1] == large[1]);
     assert(soulbrandt_audio_room() == 4u);
 
-    /* The producer must be able to reuse slots the consumer has released. */
+    /* Drain the old tail, then verify the producer can reuse the freed slots. */
+    float *drain = calloc(4092u * 2u, sizeof(float));
+    assert(drain);
+    assert(soulbrandt_audio_pull(drain, 4092u) == 4092u);
+    free(drain);
+    assert(soulbrandt_audio_queued_frames() == 4u);
+    assert(soulbrandt_audio_pull(output, 4u) == 0u);
     assert(soulbrandt_audio_write(input, 4u) == 4u);
     assert(soulbrandt_audio_pull(output, 4u) == 4u);
     assert(output[0] == input[0] && output[7] == input[7]);
