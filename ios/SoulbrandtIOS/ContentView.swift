@@ -11,6 +11,8 @@ struct ContentView: View {
     @State private var isImporting = false
     @State private var rsxBackendReady = false
     @State private var rsxBackendStatus = "RSX backend not initialized"
+    @State private var ebootStatus = "No decrypted EBOOT extracted"
+    @State private var extractedEbootURL: URL?
 
     private let savedISOKey = "Soulbrandt.importedISOName"
     private let savedSummaryKey = "Soulbrandt.importedISOSummary"
@@ -57,6 +59,19 @@ struct ContentView: View {
                             ProgressView("Copying and inspecting image…")
                                 .font(.footnote)
                         }
+                        Text(ebootStatus)
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(.secondary)
+                        if extractedEbootURL != nil {
+                            Button { loadExtractedEboot() } label: {
+                                Label("Load EBOOT into guest memory", systemImage: "memorychip")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(!rsxBackendReady)
+                        }
+                        Text("This only maps ELF segments into guest RAM. PPU execution and game boot are not implemented yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         Text("UDF support uses libudfread (LGPL-2.1); see the bundled COPYING notice.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -145,6 +160,30 @@ struct ContentView: View {
     }
 
 
+
+    private func loadExtractedEboot() {
+        guard let url = extractedEbootURL, rsxBackendReady else { return }
+        do {
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
+            var info = soulbrandt_guest_elf_info()
+            let result = data.withUnsafeBytes { bytes -> Int32 in
+                guard let base = bytes.baseAddress else { return -1 }
+                return soulbrandt_guest_load_elf(base, UInt64(bytes.count), &info)
+            }
+            if result == 0 {
+                ebootStatus = String(
+                    format: "ELF loaded • %u PT_LOAD segments • entry 0x%08X • TLS 0x%08X (%u/%u) • PPU not started",
+                    info.load_segment_count, info.entry_opd, info.tls_vaddr,
+                    info.tls_filesz, info.tls_memsz
+                )
+            } else {
+                ebootStatus = "ELF loader rejected image (\(result))"
+            }
+        } catch {
+            ebootStatus = "Could not read extracted EBOOT: \(error.localizedDescription)"
+        }
+    }
+
     private func initializeRSXBackend() {
         let result = soulbrandt_rsx_backend_initialize()
         if result == 0 {
@@ -180,6 +219,11 @@ struct ContentView: View {
         }
         importedISOName = name
         volumeSummary = UserDefaults.standard.string(forKey: savedSummaryKey) ?? "Stored in app storage."
+        let eboot = gameImagesDirectory().appendingPathComponent(PS3BootImageStore.outputName)
+        if FileManager.default.fileExists(atPath: eboot.path) {
+            extractedEbootURL = eboot
+            ebootStatus = "Decrypted EBOOT extracted • ready to load"
+        }
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {
@@ -214,6 +258,8 @@ struct ContentView: View {
                     }.value
                     importedISOName = outcome.name
                     volumeSummary = outcome.summary
+                    extractedEbootURL = outcome.ebootURL
+                    ebootStatus = outcome.ebootStatus
                     UserDefaults.standard.set(outcome.name, forKey: savedISOKey)
                     UserDefaults.standard.set(outcome.summary, forKey: savedSummaryKey)
                 } catch {
@@ -275,7 +321,7 @@ struct ContentView: View {
         return summary
     }
 
-    nonisolated private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String) {
+    nonisolated private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String, ebootURL: URL?, ebootStatus: String) {
         let fileManager = FileManager.default
         let support = fileManager.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
@@ -330,6 +376,8 @@ struct ContentView: View {
         if let copyError { throw copyError }
 
         var summary = "Imported. Disc filesystem could not be read."
+        var ebootURL: URL?
+        var ebootStatus = "EBOOT extraction was not attempted."
         do {
             let reader: any DiscImageFileSystem
             do {
@@ -339,6 +387,14 @@ struct ContentView: View {
                 reader = try ISO9660Reader(url: temporary)
             }
             summary = try Self.inspectDisc(reader)
+            do {
+                ebootURL = try PS3BootImageStore.extract(from: reader, into: directory)
+                let attrs = try fileManager.attributesOfItem(atPath: ebootURL!.path)
+                let bytes = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+                ebootStatus = "Decrypted EBOOT extracted • " + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+            } catch {
+                ebootStatus = error.localizedDescription
+            }
         } catch {
             summary = "Imported. Disc filesystem inspection failed: \(error.localizedDescription)"
         }
@@ -358,7 +414,7 @@ struct ContentView: View {
         let attributes = try fileManager.attributesOfItem(atPath: destination.path)
         let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
         let sizeText = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
-        return (source.lastPathComponent, "\(sizeText) • \(summary)")
+        return (source.lastPathComponent, "\(sizeText) • \(summary)", ebootURL, ebootStatus)
     }
 }
 
