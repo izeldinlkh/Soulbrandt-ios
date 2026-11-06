@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <unistd.h>
