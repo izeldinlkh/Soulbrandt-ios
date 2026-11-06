@@ -43,13 +43,14 @@ private enum PS3BootImageStoreSmokeTest {
         let destination = directory.appendingPathComponent(PS3BootImageStore.outputName)
         try Data("old-complete-image".utf8).write(to: destination)
 
-        let firstImage = makeELF(payload: Array(0..<17))
+        let firstImage = makeELF(payload: Array(UInt8(0)..<UInt8(17)))
         let firstURL = try PS3BootImageStore.extract(
             from: FakeDisc(executable: firstImage, executableName: "EBOOT.ELF"),
             into: directory
         )
         precondition(firstURL == destination)
-        precondition(try Data(contentsOf: destination) == firstImage,
+        let firstRead = try Data(contentsOf: destination)
+        precondition(firstRead == firstImage,
                      "Extraction must replace an existing complete EBOOT")
 
         let encrypted = Data([0x53, 0x43, 0x45, 0x00] + Array(repeating: UInt8(0), count: 60))
@@ -62,7 +63,8 @@ private enum PS3BootImageStoreSmokeTest {
         } catch PS3BootImageStore.ExtractionError.notDecrypted {
             // Expected. Existing output must remain intact.
         }
-        precondition(try Data(contentsOf: destination) == firstImage,
+        let secondRead = try Data(contentsOf: destination)
+        precondition(secondRead == firstImage,
                      "Rejected input must not damage the previous output")
 
         print("PS3 boot image store smoke test passed")
