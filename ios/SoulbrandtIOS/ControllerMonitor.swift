@@ -40,6 +40,7 @@ final class ControllerMonitor: ObservableObject {
             controllerName = nil
             input = ControllerInputSnapshot()
             soulbrandt_pad_state_reset()
+            soulbrandt_runtime_poll_pad()
             lastInput = "No controller connected"
         }
     }
@@ -50,6 +51,7 @@ final class ControllerMonitor: ObservableObject {
             lastInput = "Connected — standard gamepad profile unavailable"
             input = ControllerInputSnapshot()
             soulbrandt_pad_state_reset()
+            soulbrandt_runtime_poll_pad()
             return
         }
 
@@ -77,6 +79,7 @@ final class ControllerMonitor: ObservableObject {
             1, state.buttons, state.leftX, state.leftY, state.rightX, state.rightY,
             state.analogL2, state.analogR2
         )
+        soulbrandt_runtime_poll_pad()
     }
 
     private nonisolated static func selectButtonState(from pad: GCExtendedGamepad) -> Bool {
