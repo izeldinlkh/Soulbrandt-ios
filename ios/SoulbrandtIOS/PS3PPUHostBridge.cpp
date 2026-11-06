@@ -64,5 +64,6 @@ extern "C" uint32_t soulbrandt_ppu_host_hle_count(void)
 
 extern "C" int32_t soulbrandt_ppu_host_is_ready(void)
 {
+    std::lock_guard<std::mutex> lock(s_host_mutex);
     return s_ready;
 }
