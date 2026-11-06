@@ -8,7 +8,7 @@ fi
 
 PS3_ROOT="$(cd "$1" && pwd)"
 RECOMP_DIR="$2"
-SPU_DIR="${3:-$RECOMP_DIR/../spu}"
+SPU_DIR="${3:-$PS3_ROOT/work_spu}"
 OUT="${4:-$PWD/ppu-lift-ios-build}"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
@@ -27,6 +27,8 @@ mkdir -p "$OUT/objects"
 
 INCLUDES=(
   -I"$RECOMP_DIR"
+  -I"$SPU_DIR"
+  -I"$SPU_DIR/_gen"
   -I"$PS3_ROOT/include"
   -I"$PS3_ROOT/runtime"
   -I"$PS3_ROOT/runtime/ppu"
@@ -120,12 +122,14 @@ if [[ -f "$RECOMP_DIR/ppu_recomp.h" && -d "$SPU_DIR" ]]; then
     compile_source "$PS3_ROOT/runtime/spu/spu_dispatch_mt.c" spu
     SPU_COUNT=$((SPU_COUNT + 1))
 
-    for generated in spu_workloads.c jobmods_register.c taskset_policy_bytes.c; do
-      if [[ -f "$SPU_DIR/$generated" ]]; then
-        compile_source "$SPU_DIR/$generated" spu
-        SPU_COUNT=$((SPU_COUNT + 1))
-      fi
-    done
+    # build_spu.py writes the registration translation unit under _gen.
+    # Without it the lifted SPU objects are in the archive but never dispatched.
+    if [[ -f "$SPU_DIR/_gen/spu_workloads.cpp" ]]; then
+      compile_source "$SPU_DIR/_gen/spu_workloads.cpp" spu
+      SPU_COUNT=$((SPU_COUNT + 1))
+    else
+      echo "warning: SPU image objects found but _gen/spu_workloads.cpp is missing" >&2
+    fi
   fi
 fi
 

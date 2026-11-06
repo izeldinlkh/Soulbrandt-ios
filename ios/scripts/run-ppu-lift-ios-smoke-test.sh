@@ -6,7 +6,9 @@ PS3_ROOT="${1:?usage: run-ppu-lift-ios-smoke-test.sh /path/to/patched/ps3recomp}
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-mkdir -p "$TMP/recompiled"
+mkdir -p "$TMP/recompiled" "$TMP/spu/fixture" "$TMP/spu/_gen"
+printf '%s\n' 'void fixture_spu_image(void) {}' > "$TMP/spu/fixture/spu_recomp.c"
+printf '%s\n' 'extern "C" int fixture_spu_registration(void) { return 1; }' > "$TMP/spu/_gen/spu_workloads.cpp"
 cat > "$TMP/recompiled/ppu_recomp.h" <<'EOF'
 #include "ps3emu/ppu_lift.h"
 EOF
@@ -25,8 +27,27 @@ const uint64_t function_table_count = 1;
 EOF
 
 bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
-  "$PS3_ROOT" "$TMP/recompiled" "$TMP/no-spu" "$TMP/lift-build"
-grep -q '^game_lift=1$' "$TMP/lift-build/lift-status.txt"
+  "$PS3_ROOT" "$TMP/recompiled" "$TMP/spu" "$TMP/lift-build"
+grep -q '^game_lift=1
+test -s "$TMP/lift-build/libSoulbrandtGameLift.a"
+
+bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
+  "$PS3_ROOT" "$TMP/no-lift" "$TMP/no-spu" "$TMP/no-lift-build"
+grep -q '^game_lift=0$' "$TMP/no-lift-build/lift-status.txt"
+test -s "$TMP/no-lift-build/libSoulbrandtGameLift.a"
+
+echo "iOS PPU lift archive smoke test passed"
+ "$TMP/lift-build/lift-status.txt"
+grep -q '^spu_sources=3
+test -s "$TMP/lift-build/libSoulbrandtGameLift.a"
+
+bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
+  "$PS3_ROOT" "$TMP/no-lift" "$TMP/no-spu" "$TMP/no-lift-build"
+grep -q '^game_lift=0$' "$TMP/no-lift-build/lift-status.txt"
+test -s "$TMP/no-lift-build/libSoulbrandtGameLift.a"
+
+echo "iOS PPU lift archive smoke test passed"
+ "$TMP/lift-build/lift-status.txt"
 test -s "$TMP/lift-build/libSoulbrandtGameLift.a"
 
 bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
