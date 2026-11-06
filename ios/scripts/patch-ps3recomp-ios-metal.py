@@ -500,14 +500,14 @@ static FILE* ps3_disc_fopen(const char* path)
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
-        ```static void cellFsOpen(ppu_context* ctx)
+        '''static void cellFsOpen(ppu_context* ctx)
 {
     char gpath[1024], hpath[1100];
     guest_strcpy(gpath, (uint32_t)ctx->gpr[3], sizeof gpath);
     uint32_t flags  = (uint32_t)ctx->gpr[4];
     uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
-    host_path(hpath, sizeof hpath, gpath);```,
-        ```static void cellFsOpen(ppu_context* ctx)
+    host_path(hpath, sizeof hpath, gpath);''',
+        '''static void cellFsOpen(ppu_context* ctx)
 {
     char gpath[1024], hpath[1100];
     guest_strcpy(gpath, (uint32_t)ctx->gpr[3], sizeof gpath);
@@ -532,7 +532,7 @@ static FILE* ps3_disc_fopen(const char* path)
         return;
     }
 #endif
-    host_path(hpath, sizeof hpath, gpath);```,
+    host_path(hpath, sizeof hpath, gpath);''',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
