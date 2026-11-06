@@ -64,6 +64,7 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
     private let queue: MTLCommandQueue?
     private var pipeline: MTLRenderPipelineState?
     private let diagnosticsChanged: (String) -> Void
+    private var metal4Renderer: AnyObject?
     private var lastDiagnosticsTime = CACurrentMediaTime()
     private var framesSinceDiagnostics = 0
     private var reportedInitializationFailure = false
@@ -75,11 +76,13 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
         queue = selectedDevice?.makeCommandQueue()
         self.diagnosticsChanged = diagnosticsChanged
 
-        if #available(iOS 26.0, *), let selectedDevice {
-            metal4Available = selectedDevice.supportsFamily(.metal4)
-        } else {
-            metal4Available = false
+        var selectedMetal4Renderer: AnyObject?
+        if #available(iOS 26.0, *), let selectedDevice,
+           selectedDevice.supportsFamily(.metal4) {
+            selectedMetal4Renderer = Metal4RendererState(device: selectedDevice)
         }
+        metal4Renderer = selectedMetal4Renderer
+        metal4Available = selectedMetal4Renderer != nil
 
         super.init()
         buildPipeline()
@@ -97,7 +100,7 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
             publishDiagnostics("Metal GPU unavailable")
             return
         }
-        let api = metal4Available ? "Metal 4 supported; legacy submission path" : "Metal 3-compatible path"
+        let api = metal4Available ? "Metal 4 active" : "Metal 3-compatible fallback"
         let queueStatus = queue == nil ? " • command queue failed" : ""
         diagnosticsChanged("\(device.name) • \(api)\(queueStatus)")
     }
@@ -139,7 +142,19 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     func draw(in view: MTKView) {
-        guard let pipeline, let queue,
+        guard let pipeline else { return }
+
+        if #available(iOS 26.0, *),
+           let metal4 = metal4Renderer as? Metal4RendererState {
+            guard metal4.draw(in: view, pipeline: pipeline) else {
+                publishDiagnostics("Metal 4 frame submission failed or timed out")
+                return
+            }
+            updateFrameDiagnostics(backend: "Metal 4")
+            return
+        }
+
+        guard let queue,
               let pass = view.currentRenderPassDescriptor,
               let drawable = view.currentDrawable,
               let command = queue.makeCommandBuffer(),
@@ -156,17 +171,16 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
         encoder.endEncoding()
         command.present(drawable)
         command.commit()
-        updateFrameDiagnostics()
+        updateFrameDiagnostics(backend: "Metal 3 fallback")
     }
 
-    private func updateFrameDiagnostics() {
+    private func updateFrameDiagnostics(backend: String) {
         framesSinceDiagnostics += 1
         let now = CACurrentMediaTime()
         let elapsed = now - lastDiagnosticsTime
         guard elapsed >= 1 else { return }
         let fps = Double(framesSinceDiagnostics) / elapsed
-        let api = metal4Available ? "M4 available / M3 renderer" : "M3 renderer"
-        publishDiagnostics(String(format: "%@ • %.1f FPS", api, fps))
+        publishDiagnostics(String(format: "%@ • %.1f FPS", backend, fps))
         framesSinceDiagnostics = 0
         lastDiagnosticsTime = now
     }
