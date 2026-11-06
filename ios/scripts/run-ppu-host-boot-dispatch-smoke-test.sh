@@ -16,7 +16,7 @@ static int g_loads, g_recomp, g_hle, g_prx, g_fs, g_lv2, g_runs;
 static uint32_t g_run_entry, g_run_stack;
 typedef void (*guest_caller_fn)(uint32_t, uint64_t, uint64_t, uint64_t, uint64_t,
                                 uint64_t, uint64_t, uint64_t, uint64_t);
-guest_caller_fn g_ps3_guest_caller = nullptr;
+extern "C" { guest_caller_fn g_ps3_guest_caller = nullptr; }
 
 extern "C" int32_t soulbrandt_guest_memory_is_ready(void) { return 1; }
 extern "C" uint32_t ppu_load_elf(const char *) { ++g_loads; return 0x12345678u; }
