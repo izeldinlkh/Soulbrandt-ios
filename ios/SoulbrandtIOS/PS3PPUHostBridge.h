@@ -17,6 +17,11 @@ void soulbrandt_ppu_host_reset_image(void);
 uint32_t soulbrandt_ppu_host_function_count(void);
 uint32_t soulbrandt_ppu_host_hle_count(void);
 int32_t soulbrandt_ppu_host_is_ready(void);
+/* Starts ppu_run on a dedicated host thread. Requires a non-empty title lift. */
+int32_t soulbrandt_ppu_host_start_game(void);
+int32_t soulbrandt_ppu_host_is_running(void);
+/* INT32_MIN means ppu_run has not returned yet. */
+int32_t soulbrandt_ppu_host_run_result(void);
 
 #ifdef __cplusplus
 }
