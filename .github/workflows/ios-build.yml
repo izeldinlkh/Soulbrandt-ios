@@ -110,6 +110,12 @@ jobs:
         run: bash ios/scripts/check-ppu-host-ios-compat.sh "$RUNNER_TEMP/ps3recomp"
       - name: Build PPU host scaffold archive for iOS
         run: bash ios/scripts/build-ppu-host-ios.sh "$RUNNER_TEMP/ps3recomp" ios/build/ppu-host-ios
+      - name: Test ARM64 PPU lift archive builder
+        run: bash ios/scripts/run-ppu-lift-ios-smoke-test.sh "$RUNNER_TEMP/ps3recomp"
+      - name: Build optional title PPU/SPU lift archive for iOS
+        run: |
+          bash ios/scripts/build-ppu-lift-ios.sh "$RUNNER_TEMP/ps3recomp" \
+            ios/GameLift/recompiled ios/GameLift/spu ios/build/ppu-lift-ios
       - name: Install XcodeGen and CMake tools
         run: brew install xcodegen cmake ninja
       - name: Build patched ps3recomp runtime for iOS
