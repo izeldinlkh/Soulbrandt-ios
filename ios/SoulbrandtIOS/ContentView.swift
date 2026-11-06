@@ -149,7 +149,7 @@ struct ContentView: View {
         let result = soulbrandt_rsx_backend_initialize()
         if result == 0 {
             rsxBackendReady = true
-            rsxBackendStatus = "RSX Metal + native cellPad initialized • waiting for guest commands"
+            rsxBackendStatus = "4 GiB guest address space reserved • RSX Metal + native cellPad initialized • no game boot host yet"
         } else {
             soulbrandt_rsx_backend_shutdown()
             rsxBackendReady = false
