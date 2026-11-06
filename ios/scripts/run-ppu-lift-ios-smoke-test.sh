@@ -29,14 +29,14 @@ EOF
 
 bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
   "$PS3_ROOT" "$TMP/recompiled" "$TMP/spu" "$TMP/lift-build"
-grep -q '^game_lift=1$' "$TMP/lift-build/lift-status.txt"
-grep -q '^ppu_sources=1$' "$TMP/lift-build/lift-status.txt"
-grep -q '^spu_sources=3$' "$TMP/lift-build/lift-status.txt"
+grep -Fqx 'game_lift=1' "$TMP/lift-build/lift-status.txt"
+grep -Fqx 'ppu_sources=1' "$TMP/lift-build/lift-status.txt"
+grep -Fqx 'spu_sources=3' "$TMP/lift-build/lift-status.txt"
 test -s "$TMP/lift-build/libSoulbrandtGameLift.a"
 
 bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
   "$PS3_ROOT" "$TMP/no-lift" "$TMP/no-spu" "$TMP/no-lift-build"
-grep -q '^game_lift=0$' "$TMP/no-lift-build/lift-status.txt"
+grep -Fqx 'game_lift=0' "$TMP/no-lift-build/lift-status.txt"
 test -s "$TMP/no-lift-build/libSoulbrandtGameLift.a"
 
 echo "iOS PPU/SPU lift archive smoke test passed"
