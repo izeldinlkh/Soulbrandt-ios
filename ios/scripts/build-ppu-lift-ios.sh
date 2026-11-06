@@ -90,7 +90,7 @@ if [[ -f "$RECOMP_DIR/ppu_recomp.h" ]]; then
   while IFS= read -r source; do
     [[ "$(basename "$source")" == "ppu_hle_nids.cpp" ]] && continue
     PPU_SOURCES+=("$source")
-  done < <(find "$RECOMP_DIR" -maxdepth 1 -type f \( -name '*.c' -o -name '*.cpp' \) | sort)
+  done < <(find "$RECOMP_DIR" -type f \( -name '*.c' -o -name '*.cpp' \) | sort)
 
   if [[ ${#PPU_SOURCES[@]} -eq 0 ]]; then
     echo "ppu_recomp.h exists but no lifted PPU .c/.cpp files were found in $RECOMP_DIR" >&2
@@ -110,7 +110,7 @@ fi
 if [[ -f "$RECOMP_DIR/ppu_recomp.h" && -d "$SPU_DIR" ]]; then
   SPU_SOURCES=()
   while IFS= read -r source; do SPU_SOURCES+=("$source"); done \
-    < <(find "$SPU_DIR" -mindepth 2 -maxdepth 2 -type f -name 'spu_recomp.c' | sort)
+    < <(find "$SPU_DIR" -type f -name 'spu_recomp.c' | sort)
 
   if [[ ${#SPU_SOURCES[@]} -gt 0 ]]; then
     for source in "${SPU_SOURCES[@]}"; do
