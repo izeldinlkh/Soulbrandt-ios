@@ -96,6 +96,9 @@ if ! grep -Eq '^spu_sources=[1-9][0-9]*$' "$STATUS"; then
   exit 1
 fi
 cp "$OUT/arm64/libSoulbrandtGameLift.a" "$OUT/libSoulbrandtGameLift.a"
-echo "[title-lift] READY: $OUT/libSoulbrandtGameLift.a"
+# project.yml force-loads the archive from this generated build directory.
+mkdir -p "$ROOT/ios/build/ppu-lift-ios"
+cp "$OUT/libSoulbrandtGameLift.a" "$ROOT/ios/build/ppu-lift-ios/libSoulbrandtGameLift.a"
+echo "[title-lift] READY: $ROOT/ios/build/ppu-lift-ios/libSoulbrandtGameLift.a"
 echo "[title-lift] This is a title lift, not yet proof of a successful game boot."
 cat "$STATUS"
