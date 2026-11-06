@@ -719,6 +719,41 @@ static FILE* ps3_disc_fopen(const char* path)
     ctx->gpr[3] = CELL_OK;''',
     )
 
+    # Implement HDD deletion against the app-owned writable overlays. The
+    # imported /dev_bdvd image remains read-only and cannot be unlinked/rmdir'd.
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''static void cellFsRmdir(ppu_context* ctx)  { ctx->gpr[3] = CELL_OK; }
+static void cellFsUnlink(ppu_context* ctx) { ctx->gpr[3] = CELL_OK; }''',
+        '''static int ps3_is_writable_hdd_path(const char* path)
+{
+    return path && (strncmp(path, "/dev_hdd0/", 10) == 0 ||
+                    strncmp(path, "/dev_hdd1/", 10) == 0);
+}
+static void cellFsRmdir(ppu_context* ctx)
+{
+    char guest[1024], host[1100];
+    guest_strcpy(guest, (uint32_t)ctx->gpr[3], sizeof guest);
+    if (!ps3_is_writable_hdd_path(guest)) {
+        ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return;
+    }
+    host_path(host, sizeof host, guest);
+    ctx->gpr[3] = rmdir(host) == 0 ? CELL_OK :
+        (uint64_t)(int64_t)(errno == ENOENT ? CELL_FS_ENOENT : CELL_FS_EIO);
+}
+static void cellFsUnlink(ppu_context* ctx)
+{
+    char guest[1024], host[1100];
+    guest_strcpy(guest, (uint32_t)ctx->gpr[3], sizeof guest);
+    if (!ps3_is_writable_hdd_path(guest)) {
+        ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return;
+    }
+    host_path(host, sizeof host, guest);
+    ctx->gpr[3] = unlink(host) == 0 ? CELL_OK :
+        (uint64_t)(int64_t)(errno == ENOENT ? CELL_FS_ENOENT : CELL_FS_EIO);
+}''',
+    )
+
     print("ps3recomp iOS Metal, Mach VM, native cellPad and AVAudioEngine patches applied (or were already present)")
 
 
