@@ -86,7 +86,9 @@ struct ContentView: View {
                 allowsMultipleSelection: false,
                 onCompletion: handleImport
             )
-            .task(perform: restoreImportedImage)
+            .task {
+                restoreImportedImage()
+            }
         }
     }
 
