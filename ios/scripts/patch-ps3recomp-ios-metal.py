@@ -69,8 +69,8 @@ def main() -> None:
     # the ELF entry point, making a partial image look like a successful load.
     replace_once(
         root, "runtime/ppu/ppu_loader.cpp",
-        '#include <stdlib.h>\n#include <string.h>\n#ifdef _WIN32\n',
-        '#include <stdlib.h>\n#include <string.h>\n#include "PS3GuestMemory.h"\n#ifdef _WIN32\n',
+        '#include "ps3emu/ppu_lift.h"   /* ppu_context, the vm_* prototypes, function_table: the lift\\'s fixed part */\n',
+        '#include "ps3emu/ppu_lift.h"   /* ppu_context, the vm_* prototypes, function_table: the lift\\'s fixed part */\n#include "PS3GuestMemory.h"\n',
     )
     replace_once(
         root, "runtime/ppu/ppu_loader.cpp",
