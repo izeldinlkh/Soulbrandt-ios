@@ -12,13 +12,14 @@ cat > "$TMP/boot_bridge_test.cpp" <<'EOF'
 #include <time.h>
 
 static uint32_t g_functions = 0;
-static int g_loads, g_recomp, g_hle, g_prx, g_fs, g_lv2, g_runs;
+static int g_loads, g_recomp, g_hle, g_prx, g_fs, g_lv2, g_metadata, g_runs;
 static uint32_t g_run_entry, g_run_stack;
 typedef void (*guest_caller_fn)(uint32_t, uint64_t, uint64_t, uint64_t, uint64_t,
                                 uint64_t, uint64_t, uint64_t, uint64_t);
 extern "C" { guest_caller_fn g_ps3_guest_caller = nullptr; }
 
 extern "C" int32_t soulbrandt_guest_memory_is_ready(void) { return 1; }
+extern "C" void cellGame_init_from_paramsfo(const char *) { ++g_metadata; }
 extern "C" uint32_t ppu_load_elf(const char *) { ++g_loads; return 0x12345678u; }
 extern "C" void ppu_recomp_register(void) { ++g_recomp; }
 extern "C" void ppu_hle_init(void) { ++g_hle; }
@@ -35,10 +36,11 @@ extern "C" int ppu_run(uint32_t entry, uint32_t stack) {
 
 int main() {
     if (soulbrandt_ppu_host_set_storage_roots("/tmp/soulbrandt-hdd0", "/tmp/soulbrandt-hdd1") != 0) return 1;
-    if (soulbrandt_ppu_host_load_elf("/tmp/DecryptedEBOOT.ELF") != 0x12345678u) return 2;
-    if (g_loads != 1 || g_recomp != 1 || g_hle != 1 || g_prx != 1 || g_fs != 1 || g_lv2 != 1) return 3;
+    if (soulbrandt_ppu_host_init_title_metadata("/tmp/DecryptedPARAM.SFO") != 0 || g_metadata != 1) return 2;
+    if (soulbrandt_ppu_host_load_elf("/tmp/DecryptedEBOOT.ELF") != 0x12345678u) return 3;
+    if (g_loads != 1 || g_recomp != 1 || g_hle != 1 || g_prx != 1 || g_fs != 1 || g_lv2 != 1) return 4;
     if (!soulbrandt_ppu_host_is_ready() || soulbrandt_ppu_host_function_count() != 0) return 4;
-    if (soulbrandt_ppu_host_start_game() != -2) return 5; // empty weak table must be refused
+    if (soulbrandt_ppu_host_start_game() != -2) return 6; // empty weak table must be refused
 
     g_functions = 4096;
     if (soulbrandt_ppu_host_start_game() != 0) return 6;
