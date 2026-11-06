@@ -51,6 +51,9 @@ struct ContentView: View {
                         Text("Import stores the image in this app’s private storage. The current build can inspect ISO-9660/Joliet and UDF images, but cannot boot the game.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        Text("UDF support uses libudfread (LGPL-2.1); see the bundled COPYING notice.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }

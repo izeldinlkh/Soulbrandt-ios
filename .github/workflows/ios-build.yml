@@ -68,6 +68,8 @@ jobs:
         run: |
           mkdir -p build/Payload
           cp -R build/DerivedData/Build/Products/Debug-iphoneos/Soulbrandt.app build/Payload/
+          cp ThirdParty/libudfread/COPYING build/Payload/Soulbrandt.app/COPYING
+          test -s build/Payload/Soulbrandt.app/COPYING
           cd build
           /usr/bin/zip -qry Soulbrandt-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
