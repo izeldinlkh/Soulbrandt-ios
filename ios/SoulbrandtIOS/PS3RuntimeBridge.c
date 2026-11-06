@@ -1,11 +1,13 @@
 #include "PS3RuntimeBridge.h"
 #include "PS3PadBridge.h"
 #include "PS3GuestMemory.h"
+#include "PS3RSXFramePump.h"
 #include <stddef.h>
 
 static int s_runtime_pad_ready;
 static int s_runtime_rsx_ready;
 static int s_runtime_layer_attached;
+static int s_runtime_pump_ready;
 
 #if defined(SOULBRANDT_LINKED_RENDER_RUNTIME)
 /* These symbols are supplied by the complete des_boot host link. The generic
@@ -21,7 +23,7 @@ extern void rsx_metal_backend_shutdown(void);
 
 int32_t soulbrandt_runtime_prepare(void)
 {
-    if (s_runtime_pad_ready && s_runtime_rsx_ready && s_runtime_layer_attached)
+    if (s_runtime_pad_ready && s_runtime_rsx_ready && s_runtime_layer_attached && s_runtime_pump_ready)
         return 0;
 
     void *layer = soulbrandt_metal_layer_get();
@@ -61,6 +63,27 @@ int32_t soulbrandt_runtime_prepare(void)
         }
         s_runtime_pad_ready = 1;
     }
+
+    if (!s_runtime_pump_ready) {
+        const int32_t result = soulbrandt_rsx_frame_pump_start();
+        if (result != 0) {
+            if (s_runtime_pad_ready) {
+                (void)cellPadEnd();
+                s_runtime_pad_ready = 0;
+            }
+            if (s_runtime_rsx_ready) {
+                rsx_metal_backend_shutdown();
+                s_runtime_rsx_ready = 0;
+            }
+            if (s_runtime_layer_attached) {
+                rsx_metal_backend_set_layer(NULL);
+                s_runtime_layer_attached = 0;
+            }
+            soulbrandt_guest_memory_shutdown();
+            return -1200 + result;
+        }
+        s_runtime_pump_ready = 1;
+    }
     return 0;
 #endif
 }
@@ -75,6 +98,10 @@ void soulbrandt_runtime_poll_pad(void)
 void soulbrandt_runtime_shutdown(void)
 {
 #if defined(SOULBRANDT_LINKED_RENDER_RUNTIME)
+    if (s_runtime_pump_ready) {
+        soulbrandt_rsx_frame_pump_stop();
+        s_runtime_pump_ready = 0;
+    }
     if (s_runtime_pad_ready) {
         (void)cellPadEnd();
         s_runtime_pad_ready = 0;
@@ -92,10 +119,11 @@ void soulbrandt_runtime_shutdown(void)
     s_runtime_pad_ready = 0;
     s_runtime_rsx_ready = 0;
     s_runtime_layer_attached = 0;
+    s_runtime_pump_ready = 0;
 #endif
 }
 
 int32_t soulbrandt_runtime_is_ready(void)
 {
-    return s_runtime_pad_ready && s_runtime_rsx_ready && s_runtime_layer_attached;
+    return s_runtime_pad_ready && s_runtime_rsx_ready && s_runtime_layer_attached && s_runtime_pump_ready;
 }
