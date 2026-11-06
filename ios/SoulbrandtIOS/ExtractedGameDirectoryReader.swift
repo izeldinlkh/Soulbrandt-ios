@@ -36,7 +36,7 @@ final class ExtractedGameDirectoryReader: DiscImageFileSystem {
         var gameIsDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: candidate.path, isDirectory: &gameIsDirectory),
               gameIsDirectory.boolValue else { throw ReaderError.missingGameDirectory }
-        root = candidate.standardizedFileURL
+        root = candidate.lastPathComponent.caseInsensitiveCompare("PS3_GAME") == .orderedSame\n            ? candidate.deletingLastPathComponent().standardizedFileURL\n            : candidate.deletingLastPathComponent().standardizedFileURL
     }
 
     private func resolve(_ input: String) throws -> URL {
