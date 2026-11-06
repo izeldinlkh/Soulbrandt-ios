@@ -62,12 +62,7 @@ private struct MetalRenderSurface: UIViewRepresentable {
         layer.presentsWithTransaction = false
         soulbrandt_metal_layer_set(Unmanaged.passUnretained(layer).toOpaque())
 
-        let runtimeResult = soulbrandt_runtime_prepare()
-        if runtimeResult == 0 {
-            statusChanged("\(device.name) • RSX Metal backend initialized • cellPad HLE ready")
-        } else {
-            statusChanged("\(device.name) • Metal layer ready • RSX runtime initialization failed (\(runtimeResult))")
-        }
+        statusChanged("\(device.name) • Metal drawable surface ready • RSX backend stopped")
         return view
     }
 
