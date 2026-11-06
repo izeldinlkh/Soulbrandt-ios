@@ -246,54 +246,20 @@ static SDL_AudioDeviceID s_sdl_audio_dev = 0;""",
     )
     replace_once(
         root, "CMakeLists.txt",
-        """else()
-    # cellPad and cellAudio select their SDL2 backends unconditionally off
-    # Windows (see PAD_BACKEND_SDL2 / AUDIO_BACKEND_SDL2), so SDL2 is required
-    # here -- docs/BUILDING.md already lists it as the Linux/macOS dependency.
-    find_package(SDL2 QUIET)
-    if(SDL2_FOUND)
-        if(TARGET SDL2::SDL2)
-            target_link_libraries(ps3recomp_runtime PRIVATE SDL2::SDL2)
-        else()
-            target_include_directories(ps3recomp_runtime PRIVATE ${SDL2_INCLUDE_DIRS})
-            target_link_libraries(ps3recomp_runtime PRIVATE ${SDL2_LIBRARIES})
-        endif()
-        message(STATUS "  SDL2:         found (input + audio backends enabled)")
-    else()
-        message(FATAL_ERROR
-            "SDL2 not found. It provides the cellPad and cellAudio backends on "
-            "non-Windows hosts.\\n"
-            "  macOS:  brew install sdl2\n"
-            "  Debian: apt install libsdl2-dev\\n"
-            "If SDL2 is installed in a non-standard prefix, pass "
-            "-DCMAKE_PREFIX_PATH=<prefix>.")
-    endif()
-
-    find_package(Threads REQUIRED)""",
-        """else()
-    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        """    # cellPad and cellAudio select their SDL2 backends unconditionally off
+    # Windows (see PAD_BACKEND_SDL2 / AUDIO_BACKEND_SDL2), so SDL2 is required""",
+        """    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
         message(STATUS "  SDL2:         omitted (native GameController + AVAudioEngine backends)")
     else()
         # cellPad and cellAudio select their SDL2 backends unconditionally off
-        # Windows, so SDL2 remains required on Linux and macOS.
-        find_package(SDL2 QUIET)
-        if(SDL2_FOUND)
-            if(TARGET SDL2::SDL2)
-                target_link_libraries(ps3recomp_runtime PRIVATE SDL2::SDL2)
-            else()
-                target_include_directories(ps3recomp_runtime PRIVATE ${SDL2_INCLUDE_DIRS})
-                target_link_libraries(ps3recomp_runtime PRIVATE ${SDL2_LIBRARIES})
-            endif()
-            message(STATUS "  SDL2:         found (input + audio backends enabled)")
-        else()
-            message(FATAL_ERROR
-                "SDL2 not found. It provides the cellPad and cellAudio backends on "
-                "non-Windows hosts.\\n"
-                "  macOS:  brew install sdl2\n"
-                "  Debian: apt install libsdl2-dev\\n"
-                "If SDL2 is installed in a non-standard prefix, pass "
-                "-DCMAKE_PREFIX_PATH=<prefix>.")
-        endif()
+        # Windows, so SDL2 remains required on Linux and macOS""",
+    )
+    replace_once(
+        root, "CMakeLists.txt",
+        """    endif()
+
+    find_package(Threads REQUIRED)""",
+        """    endif()
     endif()
 
     find_package(Threads REQUIRED)""",
