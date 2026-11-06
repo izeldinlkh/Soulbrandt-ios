@@ -59,11 +59,16 @@ func makeFixture() throws -> URL {
     return url
 }
 
-let url = try makeFixture()
-defer { try? FileManager.default.removeItem(at: url) }
-let reader = try ISO9660Reader(url: url)
-let entries = try reader.list()
-precondition(entries.count == 1 && entries[0].name == "README.TXT", "Directory listing failed")
-let bytes = try reader.readFile(path: "/README.TXT", length: 32)
-precondition(String(data: bytes, encoding: .utf8) == "hello", "Random-access file read failed")
-print("ISO9660Reader smoke test passed")
+@main
+struct ISO9660ReaderSmokeTest {
+    static func main() throws {
+        let url = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let reader = try ISO9660Reader(url: url)
+        let entries = try reader.list()
+        precondition(entries.count == 1 && entries[0].name == "README.TXT", "Directory listing failed")
+        let bytes = try reader.readFile(path: "/README.TXT", length: 32)
+        precondition(String(data: bytes, encoding: .utf8) == "hello", "Random-access file read failed")
+        print("ISO9660Reader smoke test passed")
+    }
+}
