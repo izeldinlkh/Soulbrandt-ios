@@ -43,11 +43,10 @@ The existing PS3BootImageStore provides the extracted EBOOT path to the PPU ELF 
 
 ## Remaining gates
 
-- Generate the title lift and verify the exact supported game/firmware input set.
-- Compile all generated PPU chunks for ARM64 and resolve title-specific overrides/hooks.
+- Confirm the supported input set: Demon's Souls BLUS30443 v1.00 and its required decrypted boot/firmware assets.
 - Generate and compile the title SPU image/job workloads; connect SPURS registration and dispatch.
-- Add an iOS boot coordinator that owns the ordered initialization/teardown above.
-- Generate the title-specific PPU lift and function_table for the supported game revision, then statically compile and link those generated sources into the app; the current fallback has zero functions.
+- Add an iOS boot coordinator with a safe guest-thread start/stop lifecycle.
+- Generate the title-specific PPU lift and function_table, then statically compile and link those sources into the app; the current fallback has zero functions.
 - Route real guest RSX commands through the existing Metal backend and prove the first game frame.
 - Complete PS3 HDD filesystem semantics (including unlink/rmdir) and validate saves/caches against the target image.
 - Profile memory, thermal load and frame pacing on the target iPhone before making any FPS claim.
