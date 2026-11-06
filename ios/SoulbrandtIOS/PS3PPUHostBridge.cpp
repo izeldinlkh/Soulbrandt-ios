@@ -2,6 +2,8 @@
 #include "PS3GuestMemory.h"
 
 #include <stdint.h>
+#include <cstdlib>
+#include <cstring>
 #include <mutex>
 
 extern "C" {
@@ -43,6 +45,22 @@ static int32_t s_ready;
 static int32_t s_tables_registered;
 static std::mutex s_host_mutex;
 
+extern "C" int32_t soulbrandt_ppu_host_set_storage_roots(const char *hdd0_root,
+                                                              const char *hdd1_root)
+{
+    std::lock_guard<std::mutex> lock(s_host_mutex);
+    if (!hdd0_root || !*hdd0_root || !hdd1_root || !*hdd1_root) return -1;
+    const char *current_hdd0 = ::getenv("PS3_HDD0_ROOT");
+    const char *current_hdd1 = ::getenv("PS3_HDD1_ROOT");
+    if (s_tables_registered) {
+        return current_hdd0 && current_hdd1 &&
+               ::strcmp(current_hdd0, hdd0_root) == 0 &&
+               ::strcmp(current_hdd1, hdd1_root) == 0 ? 0 : -2;
+    }
+    if (::setenv("PS3_HDD0_ROOT", hdd0_root, 1) != 0) return -3;
+    if (::setenv("PS3_HDD1_ROOT", hdd1_root, 1) != 0) return -4;
+    return 0;
+}
 extern "C" uint32_t soulbrandt_ppu_host_load_elf(const char *path)
 {
     std::lock_guard<std::mutex> lock(s_host_mutex);

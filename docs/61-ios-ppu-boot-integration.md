@@ -64,11 +64,12 @@ matching user-owned EBOOT and produces:
 
 ## VFS and storage boundary
 
-The disc VFS is read-only. It supports the runtime's disc-file path and
-directory operations, but does not yet provide writable `/dev_hdd0` or
-`/dev_hdd1` storage overlays. Save data, caches and other writes therefore
-remain blocked. The path mapping still needs validation against the exact
-target disc image.
+The disc VFS is read-only. Writable `/dev_hdd0` and `/dev_hdd1` paths now map
+to persistent `Application Support/SoulbrandtStorage` directories. The current
+upstream filesystem layer supports file creation/writes and parent-directory
+creation there, but unlink/rmdir and the full PS3 filesystem semantics remain
+incomplete. The path mapping still needs validation against the exact target
+disc image; this is not yet a complete save-data compatibility claim.
 
 ## Renderer boundary
 

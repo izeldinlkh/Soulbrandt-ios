@@ -499,6 +499,28 @@ static void pad_shutdown_backend(void) {}
         '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */',
         '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */\n#include "PS3DiscVFSBridge.h"',
     )
+    # Map both bare HDD roots and child paths to the dedicated writable
+    # directories supplied by the iOS app.
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''if (hdd0_root && strncmp(guest, "/dev_hdd0/", 10) == 0) {
+        snprintf(out, cap, "%s/%s", hdd0_root, guest + 10);''',
+        '''if (hdd0_root && (strncmp(guest, "/dev_hdd0/", 10) == 0 ||
+                       strcmp(guest, "/dev_hdd0") == 0)) {
+        const char* hdd0_rel = strcmp(guest, "/dev_hdd0") == 0 ? "" : guest + 10;
+        snprintf(out, cap, "%s/%s", hdd0_root, hdd0_rel);''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''if (hdd1_root && *hdd1_root && strncmp(guest, "/dev_hdd1/", 10) == 0) {
+        snprintf(out, cap, "%s/%s", hdd1_root, guest + 10);''',
+        '''if (hdd1_root && *hdd1_root &&
+        (strncmp(guest, "/dev_hdd1/", 10) == 0 ||
+         strcmp(guest, "/dev_hdd1") == 0)) {
+        const char* hdd1_rel = strcmp(guest, "/dev_hdd1") == 0 ? "" : guest + 10;
+        snprintf(out, cap, "%s/%s", hdd1_root, hdd1_rel);''',
+    )
+
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
         'static DIR*  g_dirs[FS_MAX];',

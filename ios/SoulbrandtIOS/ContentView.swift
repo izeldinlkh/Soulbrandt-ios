@@ -164,6 +164,12 @@ struct ContentView: View {
 
     private func loadExtractedEboot() {
         guard let url = extractedEbootURL, rsxBackendReady else { return }
+        do {
+            try PS3StorageOverlay.configure()
+        } catch {
+            ebootStatus = "Could not prepare save/cache storage: \\(error.localizedDescription)"
+            return
+        }
         let entry = url.path.withCString { soulbrandt_ppu_host_load_elf($0) }
         guard entry != 0 else {
             ebootStatus = "Upstream PPU loader rejected the extracted EBOOT"

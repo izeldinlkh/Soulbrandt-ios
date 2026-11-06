@@ -11,6 +11,7 @@ extern "C" {
  * lift, HLE NIDs, sysPrx CRT, cellFs VFS and LV2 syscall table. This does not
  * dispatch guest code; ppu_run remains gated on a real title lift. */
 uint32_t soulbrandt_ppu_host_load_elf(const char *path);
+int32_t soulbrandt_ppu_host_set_storage_roots(const char *hdd0_root, const char *hdd1_root);
 /* Clear the cached image entry before guest memory is unmapped. */
 void soulbrandt_ppu_host_reset_image(void);
 uint32_t soulbrandt_ppu_host_function_count(void);
