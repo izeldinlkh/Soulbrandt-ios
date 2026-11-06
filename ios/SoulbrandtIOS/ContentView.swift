@@ -262,10 +262,10 @@ struct ContentView: View {
         do {
             let reader: any DiscImageFileSystem
             do {
-                reader = try ISO9660Reader(url: temporary)
-            } catch {
-                // Most PS3 Blu-ray images use UDF rather than ISO-9660.
+                // Prefer UDF for Blu-ray images; fall back for ordinary ISO-9660 images.
                 reader = try UDFReader(url: temporary)
+            } catch {
+                reader = try ISO9660Reader(url: temporary)
             }
             summary = try Self.inspectDisc(reader)
         } catch {

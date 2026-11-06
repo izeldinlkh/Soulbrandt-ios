@@ -9,7 +9,7 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 - The imported filename and inspection summary are remembered across launches.
 - Import is retained even when the image uses a filesystem the prototype cannot parse.
 - GameController framework discovery and basic Extended Gamepad input-event monitoring.
-- Read-only ISO-9660/Joliet and UDF directory/file access, with bounded random-access reads. UDF is provided by the LGPL-2.1 libudfread submodule.
+- Read-only UDF-first, then ISO-9660/Joliet directory and file access, with bounded random-access reads. UDF is provided by the LGPL-2.1 libudfread submodule.
 - Synthetic ISO smoke test run by the macOS CI workflow.
 
 ## Known limitations
