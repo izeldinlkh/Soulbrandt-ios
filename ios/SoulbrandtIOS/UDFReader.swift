@@ -55,6 +55,16 @@ final class UDFReader: DiscImageFileSystem {
         return result
     }
 
+    func fileSize(path: String) throws -> UInt64 {
+        guard let file = path.withCString({ udfread_file_open(volume, $0) }) else {
+            throw UDFError.fileNotFound(path)
+        }
+        defer { udfread_file_close(file) }
+        let size = udfread_file_size(file)
+        guard size >= 0 else { throw UDFError.readFailed }
+        return UInt64(size)
+    }
+
     func readFile(path: String, offset: UInt64 = 0, length: Int) throws -> Data {
         guard length >= 0,
               let file = path.withCString({ udfread_file_open(volume, $0) }) else {
