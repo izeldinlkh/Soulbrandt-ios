@@ -13,6 +13,12 @@ on:
       - ".github/workflows/ios-build.yml"
   workflow_dispatch:
 
+# A push for every small commit was leaving a long queue of obsolete macOS
+# builds. Keep only the newest build for this branch/ref.
+concurrency:
+  group: ios-shell-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-ios-shell:
     runs-on: macos-15
