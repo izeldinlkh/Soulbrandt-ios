@@ -144,20 +144,25 @@ int32_t soulbrandt_guest_load_elf(const void *bytes, uint64_t length,
 
     soulbrandt_guest_elf_info parsed = {0};
     parsed.entry_opd = (uint32_t)entry;
+    int entry_in_load_segment = 0;
+    int tls_seen = 0;
 
     for (uint16_t i = 0; i < phnum; ++i) {
         const uint8_t *ph = file + phoff + (uint64_t)i * phentsize;
         const uint32_t type = soulbrandt_be32(ph);
         if (type == 7) {
+            const uint64_t offset = soulbrandt_be64(ph + 8);
             const uint64_t vaddr = soulbrandt_be64(ph + 16);
             const uint64_t filesz = soulbrandt_be64(ph + 32);
             const uint64_t memsz = soulbrandt_be64(ph + 40);
-            if (vaddr > UINT32_MAX || filesz > UINT32_MAX ||
+            if (offset > length || filesz > length - offset ||
+                vaddr > UINT32_MAX || filesz > UINT32_MAX ||
                 memsz > UINT32_MAX || filesz > memsz ||
                 vaddr + memsz > SOULBRANDT_VM_SIZE) return -6;
             parsed.tls_vaddr = (uint32_t)vaddr;
             parsed.tls_filesz = (uint32_t)filesz;
             parsed.tls_memsz = (uint32_t)memsz;
+            tls_seen = 1;
         } else if (type == 1) {
             const uint64_t offset = soulbrandt_be64(ph + 8);
             const uint64_t vaddr = soulbrandt_be64(ph + 16);
@@ -166,10 +171,29 @@ int32_t soulbrandt_guest_load_elf(const void *bytes, uint64_t length,
             if (filesz > memsz || offset > length || filesz > length - offset ||
                 vaddr > UINT32_MAX || memsz > SOULBRANDT_VM_SIZE ||
                 vaddr + memsz > SOULBRANDT_VM_SIZE) return -7;
+            if (entry >= vaddr && entry < vaddr + memsz)
+                entry_in_load_segment = 1;
             parsed.load_segment_count++;
         }
     }
     if (parsed.load_segment_count == 0) return -8;
+    if (!entry_in_load_segment) return -9;
+    if (tls_seen) {
+        int tls_in_load_segment = 0;
+        const uint64_t tls_start = parsed.tls_vaddr;
+        const uint64_t tls_end = tls_start + parsed.tls_memsz;
+        for (uint16_t i = 0; i < phnum; ++i) {
+            const uint8_t *ph = file + phoff + (uint64_t)i * phentsize;
+            if (soulbrandt_be32(ph) != 1) continue;
+            const uint64_t vaddr = soulbrandt_be64(ph + 16);
+            const uint64_t memsz = soulbrandt_be64(ph + 40);
+            if (tls_start >= vaddr && tls_end <= vaddr + memsz) {
+                tls_in_load_segment = 1;
+                break;
+            }
+        }
+        if (!tls_in_load_segment) return -10;
+    }
 
     for (uint16_t i = 0; i < phnum; ++i) {
         const uint8_t *ph = file + phoff + (uint64_t)i * phentsize;
