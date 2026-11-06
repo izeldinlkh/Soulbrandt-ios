@@ -47,6 +47,29 @@ jobs:
         run: |
           xcode-select -p
           xcodebuild -version
+      - name: Validate pinned ps3recomp iOS Metal adaptation
+        run: |
+          PIN="$(sed -n 's/^commit=//p' ps3recomp.pin)"
+          REPO="$(sed -n 's/^repo=//p' ps3recomp.pin)"
+          test -n "$PIN" && test -n "$REPO"
+          mkdir "$RUNNER_TEMP/ps3recomp"
+          git -C "$RUNNER_TEMP/ps3recomp" init
+          git -C "$RUNNER_TEMP/ps3recomp" remote add origin "$REPO"
+          git -C "$RUNNER_TEMP/ps3recomp" fetch --depth=1 origin "$PIN"
+          git -C "$RUNNER_TEMP/ps3recomp" checkout --detach FETCH_HEAD
+          python3 ios/scripts/patch-ps3recomp-ios-metal.py "$RUNNER_TEMP/ps3recomp"
+          # The patch must be repeatable; a second run is a no-op.
+          python3 ios/scripts/patch-ps3recomp-ios-metal.py "$RUNNER_TEMP/ps3recomp"
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          PS3="$RUNNER_TEMP/ps3recomp"
+          xcrun --sdk iphoneos clang -fsyntax-only -fobjc-arc \
+            -target arm64-apple-ios16.0 -isysroot "$SDK" \
+            -I"$PS3/include" -I"$PS3/libs/video" -I"$PS3/runtime/spu" \
+            "$PS3/libs/video/rsx_metal_backend.m"
+          xcrun --sdk iphoneos clang++ -fsyntax-only -std=c++20 \
+            -target arm64-apple-ios16.0 -isysroot "$SDK" \
+            -I"$PS3/include" -I"$PS3/libs/video" \
+            "$PS3/libs/video/rsx_shader_msl.cpp"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Run ISO reader smoke test
