@@ -62,12 +62,30 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
+                GroupBox("Metal renderer") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        MetalRendererView()
+                            .frame(height: 170)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                        Text("Metal device, render pipeline and frame presentation test. The PS3 RSX renderer is not connected yet.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
                 GroupBox("Controller") {
                     VStack(alignment: .leading, spacing: 8) {
                         Label(controller.controllerName ?? "No controller detected",
                               systemImage: "gamecontroller")
                         Text(controller.lastInput)
                             .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Text("PS3 button mask: 0x\\(String(PS3PadMapper.make(snapshot: controller.input).buttons, radix: 16, uppercase: true).leftPadded(to: 4))")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                        Text("L2/R2: \\(PS3PadMapper.make(snapshot: controller.input).analogL2)/\\(PS3PadMapper.make(snapshot: controller.input).analogR2) • Cross/Circle/Square/Triangle: mapped")
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                         Text(String(format: "Left stick %.2f, %.2f • Right stick %.2f, %.2f", controller.input.leftX, controller.input.leftY, controller.input.rightX, controller.input.rightY))
                             .font(.caption.monospacedDigit())
@@ -95,6 +113,7 @@ struct ContentView: View {
             )
             .task {
                 restoreImportedImage()
+                GameAudioSession.configure()
             }
         }
     }

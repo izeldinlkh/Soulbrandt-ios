@@ -15,6 +15,10 @@ struct ControllerInputSnapshot: Equatable {
     var buttonY = false
     var leftShoulder = false
     var rightShoulder = false
+    var leftThumbstickButton = false
+    var rightThumbstickButton = false
+    var optionsButton = false
+    var homeButton = false
     var dpadX: Float = 0
     var dpadY: Float = 0
 }
@@ -98,6 +102,10 @@ final class ControllerMonitor: ObservableObject {
             buttonY: pad.buttonY.isPressed,
             leftShoulder: pad.leftShoulder.isPressed,
             rightShoulder: pad.rightShoulder.isPressed,
+            leftThumbstickButton: pad.leftThumbstickButton?.isPressed ?? false,
+            rightThumbstickButton: pad.rightThumbstickButton?.isPressed ?? false,
+            optionsButton: pad.buttonOptions?.isPressed ?? false,
+            homeButton: pad.buttonHome?.isPressed ?? false,
             dpadX: pad.dpad.xAxis.value,
             dpadY: pad.dpad.yAxis.value
         )
