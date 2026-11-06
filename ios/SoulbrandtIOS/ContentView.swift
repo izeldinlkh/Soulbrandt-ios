@@ -139,7 +139,7 @@ struct ContentView: View {
         )[0].appendingPathComponent("GameImages", isDirectory: true)
     }
 
-    private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String) {
+    nonisolated private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String) {
         let fileManager = FileManager.default
         let support = fileManager.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
