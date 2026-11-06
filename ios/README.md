@@ -22,8 +22,8 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 - The importer inspects the EBOOT header (ELF, likely SELF, or unknown), but an ELF header alone does not prove the full executable or the other required game/firmware files are decrypted and suitable for recompilation.
 - The desktop setup currently expects the supported US BLUS30443 v1.00 dump plus 28 decrypted game/firmware files; importing a single ISO does not satisfy that build pipeline.
 - Swift GameController state is translated into PS3 pad bytes. The linked runtime's native cellPad backend reads this bridge; guest game code is not running yet.
-- The pinned runtime patch also adds an AVAudioEngine-backed cellAudio output and skips SDL2 on iOS. Its C adapter is compile-checked, but the runtime mixer is not linked to the app yet.
-- The iOS target still does not build the PPU/SPU runtime or connect the RSX backend, save system, or game loop.
+- The pinned runtime archive also contains an AVAudioEngine-backed cellAudio output and skips SDL2 on iOS. The app-side lock-free audio bridge is tested, but AVAudioEngine remains dormant and the PS3 mixer is not started.
+- CI builds the generic ps3recomp runtime as an iOS ARM64 static archive. That archive is kept as a separate artifact, not linked into the app: doing so currently leaves unresolved host globals such as `g_active_ctx`, `ppu_vm_size`, `vm_write32`, and generated SPU image symbols. The full `des_boot` host and game-specific generated PPU/SPU code must be integrated before the runtime can be linked and booted.
 
 ## Generate and build on macOS
 
@@ -58,10 +58,10 @@ The UDF reader is [libudfread](https://github.com/firecore/libudfread), pinned a
 
 The paused `MTKView` publishes its owned `CAMetalLayer` through
 `soulbrandt_metal_layer_get()`. The pointer is non-owning; the view retains the
-layer and clears the bridge when dismantled. Once the runtime is linked, its
-iOS startup must pass this pointer to the patched
-`rsx_metal_backend_set_layer()` before `rsx_metal_backend_init()`. The current
-IPA does not yet link or call that backend.
+layer and clears the bridge when dismantled. The app has a runtime-initialization
+button and a weak-import bridge for `rsx_metal_backend_set_layer()` and
+`rsx_metal_backend_init()`. Until the full boot host is linked, that bridge
+returns a clear “host not linked” status rather than inventing missing globals.
 
 
 ### RSX drawable ownership
