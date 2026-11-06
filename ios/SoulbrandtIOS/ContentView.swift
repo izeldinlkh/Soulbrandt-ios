@@ -42,15 +42,19 @@ struct ContentView: View {
                             if isImporting {
                                 Label("Importing…", systemImage: "hourglass")
                             } else {
-                                Label("Import decrypted ISO", systemImage: "folder")
+                                Label("Import game ISO", systemImage: "folder")
                             }
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled(isImporting)
 
-                        Text("Import stores the image in this app’s private storage. The current build can inspect ISO-9660/Joliet and UDF images, but cannot boot the game.")
+                        Text("Import stores the image in this app’s private storage. It can inspect ISO-9660/Joliet and UDF images, but does not decrypt game files or boot the game.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        if isImporting {
+                            ProgressView("Copying and inspecting image…")
+                                .font(.footnote)
+                        }
                         Text("UDF support uses libudfread (LGPL-2.1); see the bundled COPYING notice.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -216,6 +220,31 @@ struct ContentView: View {
         let temporary = directory.appendingPathComponent(UUID().uuidString + ".partial")
         defer { try? fileManager.removeItem(at: temporary) }
 
+        // A large disc image is copied into the app sandbox. Refuse early rather
+        // than filling the user's storage halfway through a multi-gigabyte import.
+        let sourceAttributes = try fileManager.attributesOfItem(atPath: source.path)
+        guard let sourceSizeNumber = sourceAttributes[.size] as? NSNumber,
+              sourceSizeNumber.int64Value > 0 else {
+            throw ImportFailure.invalidSource
+        }
+        let sourceSize = sourceSizeNumber.int64Value
+        let safetyMargin: Int64 = 512 * 1024 * 1024
+        let (requiredSpace, overflow) = sourceSize.addingReportingOverflow(safetyMargin)
+        guard !overflow else { throw ImportFailure.invalidSource }
+
+        let capacityValues = try directory.resourceValues(forKeys: [
+            .volumeAvailableCapacityForImportantUsageKey,
+            .volumeAvailableCapacityKey
+        ])
+        let availableSpace = capacityValues.volumeAvailableCapacityForImportantUsage
+            ?? capacityValues.volumeAvailableCapacity.map { Int64($0) }
+        if let availableSpace, availableSpace < requiredSpace {
+            throw ImportFailure.insufficientStorage(
+                required: requiredSpace,
+                available: availableSpace
+            )
+        }
+
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinationError: NSError?
         var copyError: Error?
@@ -265,11 +294,21 @@ struct ContentView: View {
 private enum ImportFailure: LocalizedError {
     case notISO
     case accessDenied
+    case invalidSource
+    case insufficientStorage(required: Int64, available: Int64)
 
     var errorDescription: String? {
         switch self {
-        case .notISO: return "Please select a file with the .iso extension."
-        case .accessDenied: return "iOS did not grant access to the selected file."
+        case .notISO:
+            return "Please select a file with the .iso extension."
+        case .accessDenied:
+            return "iOS did not grant access to the selected file."
+        case .invalidSource:
+            return "The selected ISO is empty or its file size could not be read."
+        case .insufficientStorage(let required, let available):
+            let requiredText = ByteCountFormatter.string(fromByteCount: required, countStyle: .file)
+            let availableText = ByteCountFormatter.string(fromByteCount: available, countStyle: .file)
+            return "Not enough free storage. This import needs about \(requiredText); only \(availableText) is available."
         }
     }
 }
