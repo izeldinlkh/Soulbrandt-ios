@@ -34,34 +34,34 @@ def main() -> None:
         replace_once(
             root, "runtime/platform/win32_compat.c",
             """#if defined(__APPLE__)
-    /* <sys/ucontext.h>, not <ucontext.h>: the latter is the deprecated
-     * makecontext/swapcontext family and refuses to compile without _XOPEN_SOURCE,
-     * while all that is wanted here is the ucontext_t a signal handler is given. */
-    #  include <sys/ucontext.h>
-    #  include <mach/mach.h>
-    #  include <mach/mach_vm.h>
-    #  include <mach/thread_act.h>
-    #  include <pthread/qos.h>
-    #else""",
+/* <sys/ucontext.h>, not <ucontext.h>: the latter is the deprecated
+ * makecontext/swapcontext family and refuses to compile without _XOPEN_SOURCE,
+ * while all that is wanted here is the ucontext_t a signal handler is given. */
+#  include <sys/ucontext.h>
+#  include <mach/mach.h>
+#  include <mach/mach_vm.h>
+#  include <mach/thread_act.h>
+#  include <pthread/qos.h>
+#else""",
             """#if defined(__APPLE__)
-    /* <sys/ucontext.h>, not <ucontext.h>: the latter is the deprecated
-     * makecontext/swapcontext family and refuses to compile without _XOPEN_SOURCE,
-     * while all that is wanted here is the ucontext_t a signal handler is given. */
-    #  include <sys/ucontext.h>
-    #  include <mach/mach.h>
-    #  include <TargetConditionals.h>
-    #  if TARGET_OS_IPHONE
-    #    include <mach/vm_map.h>
-         /* mach/mach_vm.h is explicitly unsupported by the iOS SDK. */
-    #    define mach_vm_address_t vm_address_t
-    #    define mach_vm_size_t vm_size_t
-    #    define mach_vm_region vm_region_64
-    #  else
-    #    include <mach/mach_vm.h>
-    #  endif
-    #  include <mach/thread_act.h>
-    #  include <pthread/qos.h>
-    #else""",
+/* <sys/ucontext.h>, not <ucontext.h>: the latter is the deprecated
+ * makecontext/swapcontext family and refuses to compile without _XOPEN_SOURCE,
+ * while all that is wanted here is the ucontext_t a signal handler is given. */
+#  include <sys/ucontext.h>
+#  include <mach/mach.h>
+#  include <TargetConditionals.h>
+#  if TARGET_OS_IPHONE
+#    include <mach/vm_map.h>
+     /* mach/mach_vm.h is explicitly unsupported by the iOS SDK. */
+#    define mach_vm_address_t vm_address_t
+#    define mach_vm_size_t vm_size_t
+#    define mach_vm_region vm_region_64
+#  else
+#    include <mach/mach_vm.h>
+#  endif
+#  include <mach/thread_act.h>
+#  include <pthread/qos.h>
+#else""",
         )
 
     replace_once(
