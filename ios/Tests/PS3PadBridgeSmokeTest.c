@@ -18,6 +18,13 @@ int main(void)
     soulbrandt_pad_state_reset();
     soulbrandt_pad_state_read(&state);
     assert(state.buttons == 0 && state.connected == 0 && state.analog_l2 == 0 && state.analog_r2 == 0);
-    puts("PS3 pad C bridge smoke test passed");
+    int layer_token = 0, other_token = 0;
+    soulbrandt_metal_layer_set(&layer_token);
+    assert(soulbrandt_metal_layer_get() == &layer_token);
+    soulbrandt_metal_layer_clear(&other_token);
+    assert(soulbrandt_metal_layer_get() == &layer_token);
+    soulbrandt_metal_layer_clear(&layer_token);
+    assert(soulbrandt_metal_layer_get() == NULL);
+    puts("PS3 pad and Metal layer C bridge smoke tests passed");
     return 0;
 }

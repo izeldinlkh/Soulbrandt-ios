@@ -3,6 +3,7 @@
 #include <string.h>
 
 static pthread_mutex_t s_pad_lock = PTHREAD_MUTEX_INITIALIZER;
+static void *s_metal_layer = NULL; /* retained by the owning MTKView, not by this bridge */
 static SoulbrandtPadState s_pad_state = {
     .buttons = 0, .connected = 0,
     .left_x = 128, .left_y = 128,
@@ -38,4 +39,26 @@ void soulbrandt_pad_state_read(SoulbrandtPadState *out_state)
 void soulbrandt_pad_state_reset(void)
 {
     soulbrandt_pad_state_write(0, 0, 128, 128, 128, 128, 0, 0);
+}
+
+void soulbrandt_metal_layer_set(void *layer)
+{
+    pthread_mutex_lock(&s_pad_lock);
+    s_metal_layer = layer;
+    pthread_mutex_unlock(&s_pad_lock);
+}
+
+void *soulbrandt_metal_layer_get(void)
+{
+    pthread_mutex_lock(&s_pad_lock);
+    void *layer = s_metal_layer;
+    pthread_mutex_unlock(&s_pad_lock);
+    return layer;
+}
+
+void soulbrandt_metal_layer_clear(void *layer)
+{
+    pthread_mutex_lock(&s_pad_lock);
+    if (s_metal_layer == layer) s_metal_layer = NULL;
+    pthread_mutex_unlock(&s_pad_lock);
 }

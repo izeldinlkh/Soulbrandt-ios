@@ -51,3 +51,12 @@ The existing desktop CMake target is not an iOS target. Its SDL2, Vulkan/vkd3d, 
 ## Third-party notices
 
 The UDF reader is [libudfread](https://github.com/firecore/libudfread), pinned as a source submodule and licensed under LGPL-2.1-or-later. Its `COPYING` license text is included in the app bundle. The app links the library statically; the complete application source, dependency source, and build workflow are available in this repository so the app can be rebuilt with a modified library.
+
+### Metal surface handoff
+
+The diagnostic `MTKView` publishes its owned `CAMetalLayer` through
+`soulbrandt_metal_layer_get()`. The pointer is non-owning; the view retains the
+layer and clears the bridge when dismantled. Once the runtime is linked, its
+iOS startup must pass this pointer to the patched
+`rsx_metal_backend_set_layer()` before `rsx_metal_backend_init()`. The current
+IPA does not yet link or call that backend.

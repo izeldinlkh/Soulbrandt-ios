@@ -22,6 +22,11 @@ void soulbrandt_pad_state_write(uint8_t connected, uint16_t buttons,
 void soulbrandt_pad_state_read(SoulbrandtPadState *out_state);
 void soulbrandt_pad_state_reset(void);
 
+/* Non-owning pointer to the MTKView-owned CAMetalLayer for the RSX host. */
+void soulbrandt_metal_layer_set(void *layer);
+void *soulbrandt_metal_layer_get(void);
+void soulbrandt_metal_layer_clear(void *layer);
+
 #ifdef __cplusplus
 }
 #endif

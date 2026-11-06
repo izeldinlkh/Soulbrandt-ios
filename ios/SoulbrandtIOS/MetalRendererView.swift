@@ -41,10 +41,23 @@ private struct MetalRenderSurface: UIViewRepresentable {
         view.presentsWithTransaction = false
         view.clearColor = MTLClearColor(red: 0.035, green: 0.045, blue: 0.065, alpha: 1)
         view.delegate = context.coordinator.renderer
+        if let layer = view.layer as? CAMetalLayer {
+            // The MTKView owns this layer. The C bridge publishes a non-owning
+            // pointer for the eventual rsx_metal_backend_set_layer() call.
+            soulbrandt_metal_layer_set(Unmanaged.passUnretained(layer).toOpaque())
+        } else {
+            diagnosticsChanged("MTKView did not provide a CAMetalLayer")
+        }
         return view
     }
 
     func updateUIView(_ uiView: MTKView, context: Context) {}
+
+    static func dismantleUIView(_ uiView: MTKView, coordinator: Coordinator) {
+        if let layer = uiView.layer as? CAMetalLayer {
+            soulbrandt_metal_layer_clear(Unmanaged.passUnretained(layer).toOpaque())
+        }
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(diagnosticsChanged: diagnosticsChanged)
