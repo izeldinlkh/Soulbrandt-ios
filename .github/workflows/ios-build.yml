@@ -38,6 +38,8 @@ jobs:
         run: bash ios/scripts/run-pad-bridge-smoke-test.sh
       - name: Run PS3 audio C bridge smoke test
         run: bash ios/scripts/run-audio-bridge-smoke-test.sh
+      - name: Run PS3 runtime bridge lifecycle smoke test
+        run: bash ios/scripts/run-runtime-bridge-smoke-test.sh
 
   build-ios-shell:
     runs-on: macos-26-intel
