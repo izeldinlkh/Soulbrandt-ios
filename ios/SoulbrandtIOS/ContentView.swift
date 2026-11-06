@@ -1,3 +1,4 @@
+import Darwin
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -208,10 +209,17 @@ struct ContentView: View {
             summary = "Imported. ISO-9660/Joliet inspection unavailable: \(error.localizedDescription)"
         }
 
-        if fileManager.fileExists(atPath: destination.path) {
-            try fileManager.removeItem(at: destination)
+        // The temporary file is in the same directory/volume as the destination.
+        // POSIX rename replaces an existing image atomically, so a failed import never
+        // destroys the user's previously imported ISO.
+        let renameResult = temporary.path.withCString { sourcePath in
+            destination.path.withCString { destinationPath in
+                Darwin.rename(sourcePath, destinationPath)
+            }
         }
-        try fileManager.moveItem(at: temporary, to: destination)
+        guard renameResult == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
 
         let attributes = try fileManager.attributesOfItem(atPath: destination.path)
         let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
