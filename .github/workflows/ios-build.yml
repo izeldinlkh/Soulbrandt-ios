@@ -30,6 +30,8 @@ jobs:
           submodules: recursive
       - name: Run ISO reader smoke test
         run: bash ios/scripts/run-iso-smoke-test.sh
+      - name: Run extracted game folder reader smoke test
+        run: bash ios/scripts/run-extracted-folder-smoke-test.sh
       - name: Run EBOOT extraction smoke test
         run: bash ios/scripts/run-boot-image-store-smoke-test.sh
       - name: Run virtual disc VFS smoke test
