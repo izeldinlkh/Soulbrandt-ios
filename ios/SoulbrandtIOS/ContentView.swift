@@ -65,7 +65,8 @@ struct ContentView: View {
                 GroupBox("Metal renderer") {
                     VStack(alignment: .leading, spacing: 8) {
                         MetalRendererView()
-                            .frame(height: 170)
+                            .aspectRatio(16.0 / 9.0, contentMode: .fit)
+                            .frame(maxWidth: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
                         Text("Native Metal drawable surface reserved for the PS3 RSX renderer. The game runtime is not started yet.")
                             .font(.footnote)

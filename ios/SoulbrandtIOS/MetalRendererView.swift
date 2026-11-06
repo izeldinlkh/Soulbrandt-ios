@@ -41,7 +41,9 @@ private struct MetalRenderSurface: UIViewRepresentable {
         view.enableSetNeedsDisplay = true
         view.delegate = nil
         view.framebufferOnly = true
-        view.autoResizeDrawable = true
+        // Let the RSX backend control the native render resolution.
+        view.autoResizeDrawable = false
+        view.drawableSize = CGSize(width: 1280, height: 720)
         view.presentsWithTransaction = false
         view.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
 
