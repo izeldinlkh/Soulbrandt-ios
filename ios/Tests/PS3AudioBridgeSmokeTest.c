@@ -1,4 +1,4 @@
-#include "PS3AudioBridge.h"
+#include "../SoulbrandtIOS/PS3AudioBridge.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -35,6 +35,11 @@ int main(void)
     assert(soulbrandt_audio_pull(output, 4u) == 4u);
     assert(output[0] == large[0] && output[1] == large[1]);
     assert(soulbrandt_audio_room() == 4u);
+
+    /* The producer must be able to reuse slots the consumer has released. */
+    assert(soulbrandt_audio_write(input, 4u) == 4u);
+    assert(soulbrandt_audio_pull(output, 4u) == 4u);
+    assert(output[0] == input[0] && output[7] == input[7]);
     free(large);
 
     soulbrandt_audio_reset();
