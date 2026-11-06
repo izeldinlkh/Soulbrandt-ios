@@ -61,6 +61,9 @@ struct ContentView: View {
                         Text(controller.lastInput)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        Text(String(format: "Left stick %.2f, %.2f • Right stick %.2f, %.2f", controller.input.leftX, controller.input.leftY, controller.input.rightX, controller.input.rightY))
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
