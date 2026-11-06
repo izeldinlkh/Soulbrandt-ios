@@ -154,7 +154,7 @@ struct ContentView: View {
             soulbrandt_rsx_backend_shutdown()
             rsxBackendReady = false
             if result == -1001 {
-                rsxBackendStatus = "Renderer and input adapters are prepared; des_boot host and generated PPU/SPU code are not linked yet"
+                rsxBackendStatus = "Metal drawable and iOS input adapter are ready; des_boot host and generated PPU/SPU code are not linked yet"
             } else if result == -1000 {
                 rsxBackendStatus = "Metal drawable layer is not available yet"
             } else {
