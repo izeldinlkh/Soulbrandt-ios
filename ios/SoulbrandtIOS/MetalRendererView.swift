@@ -1,5 +1,6 @@
 import MetalKit
 import SwiftUI
+import UIKit
 
 /// A small real Metal render loop used to bring up the iOS drawable/pipeline path.
 /// The PS3 RSX command stream is not connected to this view yet.

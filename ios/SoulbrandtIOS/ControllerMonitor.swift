@@ -2,26 +2,6 @@ import Combine
 import Foundation
 import GameController
 
-struct ControllerInputSnapshot: Equatable {
-    var leftX: Float = 0
-    var leftY: Float = 0
-    var rightX: Float = 0
-    var rightY: Float = 0
-    var leftTrigger: Float = 0
-    var rightTrigger: Float = 0
-    var buttonA = false
-    var buttonB = false
-    var buttonX = false
-    var buttonY = false
-    var leftShoulder = false
-    var rightShoulder = false
-    var leftThumbstickButton = false
-    var rightThumbstickButton = false
-    var optionsButton = false
-    var homeButton = false
-    var dpadX: Float = 0
-    var dpadY: Float = 0
-}
 
 @MainActor
 final class ControllerMonitor: ObservableObject {
@@ -59,6 +39,7 @@ final class ControllerMonitor: ObservableObject {
         } else {
             controllerName = nil
             input = ControllerInputSnapshot()
+            soulbrandt_pad_state_reset()
             lastInput = "No controller connected"
         }
     }
@@ -68,11 +49,12 @@ final class ControllerMonitor: ObservableObject {
         guard let pad = controller.extendedGamepad else {
             lastInput = "Connected — standard gamepad profile unavailable"
             input = ControllerInputSnapshot()
+            soulbrandt_pad_state_reset()
             return
         }
 
         // Publish the current state immediately; do not wait for the next button event.
-        input = Self.snapshot(from: pad)
+        publish(Self.snapshot(from: pad))
         lastInput = "Controller ready"
 
         // GCController retains its gamepad and the handler. Capture the pad weakly to
@@ -86,6 +68,15 @@ final class ControllerMonitor: ObservableObject {
                 self?.lastInput = "Input detected: \(description)"
             }
         }
+    }
+
+    private func publish(_ snapshot: ControllerInputSnapshot) {
+        input = snapshot
+        let state = PS3PadMapper.make(snapshot: snapshot)
+        soulbrandt_pad_state_write(
+            state.buttons, state.leftX, state.leftY, state.rightX, state.rightY,
+            state.analogL2, state.analogR2
+        )
     }
 
     private nonisolated static func snapshot(from pad: GCExtendedGamepad) -> ControllerInputSnapshot {
