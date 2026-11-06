@@ -34,6 +34,22 @@ jobs:
           -project SoulbrandtIOS.xcodeproj
           -scheme SoulbrandtIOS
           -sdk iphoneos
+          -destination 'generic/platform=iOS'
           -configuration Debug
+          -derivedDataPath build/DerivedData
           CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
           build
+      - name: Package unsigned IPA
+        working-directory: ios
+        run: |
+          mkdir -p build/Payload
+          cp -R build/DerivedData/Build/Products/Debug-iphoneos/Soulbrandt.app build/Payload/
+          cd build
+          /usr/bin/zip -qry Soulbrandt-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Soulbrandt-unsigned-IPA
+          path: ios/build/Soulbrandt-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
