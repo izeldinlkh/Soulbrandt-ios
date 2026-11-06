@@ -30,13 +30,13 @@ The upstream template runner establishes this order:
 8. Initialize LV2 syscall dispatch with lv2_init_syscalls().
 9. Install the guest-callback bridge, start a frame/FIFO pump, then dispatch the entry OPD with ppu_run().
 
-The iOS host now has an app-owned RSX frame-pump thread that drives GCM vblank/flip callbacks, drains the FIFO between ticks, and presents only completed guest flips. The MTKView remains a drawable owner and does not run a competing render loop. The PPU bridge loads an extracted EBOOT and calls the upstream registration sequence, but still does not dispatch ppu_run().
+The iOS host now has an app-owned RSX frame-pump thread that drives GCM vblank/flip callbacks, drains the FIFO between ticks, and presents only completed guest flips. The MTKView remains a drawable owner and does not run a competing render loop. The PPU bridge loads an extracted EBOOT through the bounds-checked guest ELF loader, registers the PPU/HLE/syscall tables, and installs the guest callback dispatcher. Runtime shutdown clears the cached image/callback before unmapping memory; process-wide tables are retained across restart. It still does not dispatch ppu_run().
 
 ## iOS-specific build decision
 
 Do not adopt the upstream dynamic split-module loader as the first iOS route. runtime/ppu/game_module.c explicitly supports Windows x64 and x86-64 ELF only; its freestanding libc implementation is likewise x86-specific. The iOS route should statically compile the generated PPU chunks and title registration table into the app target, alongside the PPU host scaffold and generic runtime.
 
-The existing PS3BootImageStore can provide the extracted EBOOT path to the PPU ELF loader. Runtime cellFs access still needs to use the imported-disc VFS callbacks, with /dev_bdvd mapped to disc root and /app_home mapped to /PS3_GAME/USRDIR. Save/cache paths require a writable sandbox overlay; the ISO itself stays read-only.
+The existing PS3BootImageStore provides the extracted EBOOT path to the PPU ELF loader. Runtime cellFs access uses the imported-disc VFS callbacks, with /dev_bdvd mapped to disc root and /app_home mapped to /PS3_GAME/USRDIR. Persistent /dev_hdd0 and /dev_hdd1 roots now map to Application Support/SoulbrandtStorage; the ISO itself stays read-only. Remaining filesystem gaps include unlink/rmdir and validation against the exact target disc.
 
 ## Remaining gates
 
@@ -46,7 +46,7 @@ The existing PS3BootImageStore can provide the extracted EBOOT path to the PPU E
 - Add an iOS boot coordinator that owns the ordered initialization/teardown above.
 - Link the host archive and generated title objects into the app; verify no unresolved host symbols.
 - Route real guest RSX commands through the existing Metal backend and prove the first game frame.
-- Implement persistent writable storage for saves and game data.
+- Complete PS3 HDD filesystem semantics (including unlink/rmdir) and validate saves/caches against the target image.
 - Profile memory, thermal load and frame pacing on the target iPhone before making any FPS claim.
 
 A successful archive or IPA build is a host-build milestone, not evidence of a bootable game.
