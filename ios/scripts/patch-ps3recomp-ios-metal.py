@@ -170,13 +170,13 @@ extern void soulbrandt_audio_reset(void);
 
 static int audio_backend_init(void)
 {
-    soulbrandt_audio_reset();
+    /* AVAudioEngine owns the consumer and resets the ring before starting. */
     return 0;
 }
 
 static void audio_backend_shutdown(void)
 {
-    soulbrandt_audio_reset();
+    /* Do not reset while AVAudioSourceNode may be reading the ring. */
 }
 
 static void audio_backend_submit(const float* stereo_samples, u32 num_samples)
