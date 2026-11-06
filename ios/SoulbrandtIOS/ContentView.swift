@@ -170,9 +170,10 @@ struct ContentView: View {
             return
         }
         let functions = soulbrandt_ppu_host_function_count()
+        let hleEntries = soulbrandt_ppu_host_hle_count()
         ebootStatus = String(
-            format: "PPU loader mapped EBOOT • entry OPD 0x%08X • %u lifted functions registered • execution not started",
-            entry, functions
+            format: "EBOOT mapped • OPD 0x%08X • PPU funcs %u • HLE NIDs %u • not booted",
+            entry, functions, hleEntries
         )
     }
 
@@ -241,6 +242,12 @@ struct ContentView: View {
             let isDirectlyReadable = FileManager.default.isReadableFile(atPath: source.path)
             guard hasSecurityScope || isDirectlyReadable else {
                 throw ImportFailure.accessDenied
+            }
+
+            // A different image must not replace the mounted VFS while the
+            // previous guest VM or PPU entry is still live.
+            if rsxBackendReady {
+                stopRSXBackend()
             }
 
             isImporting = true
