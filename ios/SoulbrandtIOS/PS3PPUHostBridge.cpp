@@ -14,6 +14,7 @@ void ppu_hle_init(void);
 void ppu_sysprx_register(void);
 void ppu_fs_register(void);
 void lv2_init_syscalls(void);
+int ppu_run(uint32_t entry_opd, uint32_t stack_top);
 uint32_t ppu_function_count(void);
 uint32_t ps3_hle_count(void);
 }
