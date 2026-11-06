@@ -35,6 +35,9 @@ private struct MetalRenderSurface: UIViewRepresentable {
         view.isPaused = false
         view.enableSetNeedsDisplay = false
         view.framebufferOnly = true
+        // Match the pinned RSX backend's initial 1280x720 depth target.
+        view.autoResizeDrawable = false
+        view.drawableSize = CGSize(width: 1280, height: 720)
         view.presentsWithTransaction = false
         view.clearColor = MTLClearColor(red: 0.035, green: 0.045, blue: 0.065, alpha: 1)
         view.delegate = context.coordinator.renderer
@@ -83,7 +86,13 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
         reportInitialStatus()
     }
 
-    private func publishDiagnostics(_ message: String) {\n        DispatchQueue.main.async { [diagnosticsChanged] in\n            diagnosticsChanged(message)\n        }\n    }\n\n    private func reportInitialStatus() {
+    private func publishDiagnostics(_ message: String) {
+        DispatchQueue.main.async { [diagnosticsChanged] in
+            diagnosticsChanged(message)
+        }
+    }
+
+    private func reportInitialStatus() {
         guard let device else {
             publishDiagnostics("Metal GPU unavailable")
             return
