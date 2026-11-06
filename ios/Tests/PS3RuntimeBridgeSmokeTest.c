@@ -15,6 +15,7 @@ static int s_pump_start_calls, s_pump_stop_calls;
 static int s_ppu_reset_calls;
 
 void soulbrandt_ppu_host_reset_image(void) { s_ppu_reset_calls++; }
+int32_t soulbrandt_ppu_host_is_running(void) { return 0; }
 
 int32_t soulbrandt_rsx_frame_pump_start(void)
 {
