@@ -112,6 +112,8 @@ jobs:
         run: bash ios/scripts/build-ppu-host-ios.sh "$RUNNER_TEMP/ps3recomp" ios/build/ppu-host-ios
       - name: Test ARM64 PPU lift archive builder
         run: bash ios/scripts/run-ppu-lift-ios-smoke-test.sh "$RUNNER_TEMP/ps3recomp"
+      - name: Test private title-lift pipeline preflight
+        run: bash ios/scripts/run-title-lift-preflight-smoke-test.sh
       - name: Build optional title PPU/SPU lift archive for iOS
         run: |
           bash ios/scripts/build-ppu-lift-ios.sh "$RUNNER_TEMP/ps3recomp" \
