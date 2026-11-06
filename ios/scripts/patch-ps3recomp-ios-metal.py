@@ -417,6 +417,202 @@ static void pad_shutdown_backend(void) {}
 #endif
 #endif""",
     )
+
+    # Route read-only /dev_bdvd and /app_home cellFs calls through the app's
+    # random-access ISO/UDF reader. Other paths keep the existing host VFS.
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */',
+        '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */\\n#include "PS3DiscVFSBridge.h"',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        'static DIR*  g_dirs[FS_MAX];',
+        'static DIR*  g_dirs[FS_MAX];\\n#if defined(__APPLE__)\\nstatic uint8_t g_disc_dirs[FS_MAX];\\nstatic uint32_t g_disc_dir_index[FS_MAX];\\nstatic char g_disc_dir_path[FS_MAX][1024];\\n#endif',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]) { g_files[i] = f; return i; }',
+        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]\\n#if defined(__APPLE__)\\n        && !g_disc_dirs[i]\\n#endif\\n    ) { g_files[i] = f; return i; }',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]) { g_dirs[i] = d; return i; }',
+        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]\\n#if defined(__APPLE__)\\n        && !g_disc_dirs[i]\\n#endif\\n    ) { g_dirs[i] = d; return i; }',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '/* ---- handlers ---- */',
+        '''#if defined(__APPLE__)
+/* funopen lets the existing FILE*/fread/fseek/fclose handlers consume an ISO
+ * file without extracting it. The cookie owns a VFS handle and a byte offset. */
+struct ps3_disc_cookie { uint64_t handle, size, offset; };
+static int ps3_disc_read(void* opaque, char* buffer, int length)
+{
+    ps3_disc_cookie* c = (ps3_disc_cookie*)opaque;
+    if (!c || length <= 0) return 0;
+    int32_t n = soulbrandt_disc_vfs_read(c->handle, c->offset, buffer, (uint32_t)length);
+    if (n < 0) return -1;
+    c->offset += (uint32_t)n;
+    return n;
+}
+static fpos_t ps3_disc_seek(void* opaque, fpos_t offset, int whence)
+{
+    ps3_disc_cookie* c = (ps3_disc_cookie*)opaque;
+    if (!c) { errno = EINVAL; return (fpos_t)-1; }
+    int64_t base = whence == SEEK_SET ? 0 :
+                   whence == SEEK_CUR ? (int64_t)c->offset :
+                   whence == SEEK_END ? (int64_t)c->size : -1;
+    if (base < 0 || (offset < 0 && base < -offset) ||
+        (offset > 0 && base > INT64_MAX - offset)) {
+        errno = EINVAL; return (fpos_t)-1;
+    }
+    int64_t next = base + (int64_t)offset;
+    if (next < 0) { errno = EINVAL; return (fpos_t)-1; }
+    c->offset = (uint64_t)next;
+    return (fpos_t)next;
+}
+static int ps3_disc_close(void* opaque)
+{
+    ps3_disc_cookie* c = (ps3_disc_cookie*)opaque;
+    if (c) { soulbrandt_disc_vfs_close(c->handle); free(c); }
+    return 0;
+}
+static int ps3_is_disc_path(const char* path)
+{
+    return path && (!strncmp(path, "/dev_bdvd", 9) ||
+                    !strncmp(path, "/app_home", 9));
+}
+static FILE* ps3_disc_fopen(const char* path)
+{
+    uint64_t handle = 0, size = 0;
+    if (soulbrandt_disc_vfs_open(path, &handle, &size) != 0) return nullptr;
+    ps3_disc_cookie* cookie = (ps3_disc_cookie*)calloc(1, sizeof(*cookie));
+    if (!cookie) { soulbrandt_disc_vfs_close(handle); return nullptr; }
+    cookie->handle = handle; cookie->size = size;
+    FILE* file = funopen(cookie, ps3_disc_read, nullptr, ps3_disc_seek, ps3_disc_close);
+    if (!file) ps3_disc_close(cookie);
+    return file;
+}
+#endif
+
+/* ---- handlers ---- */''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
+    host_path(hpath, sizeof hpath, gpath);''',
+        '''    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
+#if defined(__APPLE__)
+    if (ps3_is_disc_path(gpath)) {
+        uint64_t ignored_size = 0; uint8_t is_directory = 0;
+        if (soulbrandt_disc_vfs_stat(gpath, &ignored_size, &is_directory) == 0 && is_directory) {
+            ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EISDIR; return;
+        }
+        if ((flags & 0x3u) != CELL_FS_O_RDONLY) {
+            ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return;
+        }
+        FILE* disc_file = ps3_disc_fopen(gpath);
+        if (!disc_file) { ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_ENOENT; return; }
+        int disc_fd = fd_alloc_file(disc_file);
+        if (disc_fd < 0) { fclose(disc_file); ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return; }
+        if (fd_ptr) vm_write32(fd_ptr, (uint32_t)disc_fd);
+        strncpy(g_fd_path[disc_fd], gpath, sizeof g_fd_path[disc_fd] - 1);
+        ctx->gpr[3] = CELL_OK;
+        return;
+    }
+#endif
+    host_path(hpath, sizeof hpath, gpath);''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''    host_path(hpath, sizeof hpath, gpath);
+    struct stat st;
+    if (stat(hpath, &st) != 0) {''',
+        '''#if defined(__APPLE__)
+    if (ps3_is_disc_path(gpath)) {
+        uint64_t size = 0; uint8_t is_directory = 0;
+        if (soulbrandt_disc_vfs_stat(gpath, &size, &is_directory) != 0) {
+            ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_ENOENT; return;
+        }
+        uint32_t mode = is_directory ? (CELL_FS_S_IFDIR | 0x1FF)
+                                     : (CELL_FS_S_IFREG | 0x1B6);
+        if (sb) write_stat(sb, mode, size);
+        ctx->gpr[3] = CELL_OK;
+        return;
+    }
+#endif
+    host_path(hpath, sizeof hpath, gpath);
+    struct stat st;
+    if (stat(hpath, &st) != 0) {''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''    host_path(hpath, sizeof hpath, gpath);
+    DIR* d = opendir(hpath);''',
+        '''#if defined(__APPLE__)
+    if (ps3_is_disc_path(gpath)) {
+        uint64_t ignored_size = 0; uint8_t is_directory = 0;
+        if (soulbrandt_disc_vfs_stat(gpath, &ignored_size, &is_directory) != 0 || !is_directory) {
+            ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_ENOENT; return;
+        }
+        int fd = -1;
+        for (int i = 3; i < FS_MAX; i++) {
+            if (!g_files[i] && !g_dirs[i] && !g_disc_dirs[i]) { fd = i; break; }
+        }
+        if (fd < 0) { ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return; }
+        g_disc_dirs[fd] = 1;
+        g_disc_dir_index[fd] = 0;
+        strncpy(g_disc_dir_path[fd], gpath, sizeof g_disc_dir_path[fd] - 1);
+        if (fd_ptr) vm_write32(fd_ptr, (uint32_t)fd);
+        ctx->gpr[3] = CELL_OK;
+        return;
+    }
+#endif
+    host_path(hpath, sizeof hpath, gpath);
+    DIR* d = opendir(hpath);''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''    if (fd < 0 || fd >= FS_MAX || !g_dirs[fd]) { ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return; }
+    struct dirent* e = readdir(g_dirs[fd]);''',
+        '''    if (fd < 0 || fd >= FS_MAX || (!g_dirs[fd]
+#if defined(__APPLE__)
+        && !g_disc_dirs[fd]
+#endif
+    )) { ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return; }
+#if defined(__APPLE__)
+    if (g_disc_dirs[fd]) {
+        char name[256]; uint8_t is_directory = 0;
+        int result = soulbrandt_disc_vfs_list(g_disc_dir_path[fd], g_disc_dir_index[fd]++,
+                                               name, sizeof name, &is_directory);
+        if (result == 0) { if (nread_ptr) vm_write64(nread_ptr, 0); ctx->gpr[3] = CELL_OK; return; }
+        if (result < 0) { ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return; }
+        size_t nl = strlen(name);
+        vm_base[dirent + 0] = is_directory ? CELL_FS_TYPE_DIR : CELL_FS_TYPE_REG;
+        vm_base[dirent + 1] = (uint8_t)nl;
+        memcpy(vm_base + dirent + 2, name, nl);
+        vm_base[dirent + 2 + nl] = 0;
+        if (nread_ptr) vm_write64(nread_ptr, 0x102);
+        ctx->gpr[3] = CELL_OK;
+        return;
+    }
+#endif
+    struct dirent* e = readdir(g_dirs[fd]);''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''    if (fd >= 0 && fd < FS_MAX && g_dirs[fd]) { closedir(g_dirs[fd]); g_dirs[fd] = nullptr; }
+    ctx->gpr[3] = CELL_OK;''',
+        '''    if (fd >= 0 && fd < FS_MAX && g_dirs[fd]) { closedir(g_dirs[fd]); g_dirs[fd] = nullptr; }
+#if defined(__APPLE__)
+    if (fd >= 0 && fd < FS_MAX && g_disc_dirs[fd]) {
+        g_disc_dirs[fd] = 0; g_disc_dir_index[fd] = 0; g_disc_dir_path[fd][0] = 0;
+    }
+#endif
+    ctx->gpr[3] = CELL_OK;''',
+    )
+
     print("ps3recomp iOS Metal, Mach VM, native cellPad and AVAudioEngine patches applied (or were already present)")
 
 
