@@ -13,6 +13,8 @@ struct ContentView: View {
     @State private var rsxBackendStatus = "RSX backend not initialized"
     @State private var ebootStatus = "No decrypted EBOOT extracted"
     @State private var extractedEbootURL: URL?
+    @State private var canBootGame = false
+    @State private var ppuBootStatus = "Game execution not started"
 
     private let savedISOKey = "Soulbrandt.importedISOName"
     private let savedSummaryKey = "Soulbrandt.importedISOSummary"
@@ -70,6 +72,16 @@ struct ContentView: View {
                             .buttonStyle(.bordered)
                             .disabled(!rsxBackendReady)
                         }
+                        if canBootGame {
+                            Button { startGame() } label: {
+                                Label("Boot Demon’s Souls", systemImage: "play.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(soulbrandt_ppu_host_is_running() != 0)
+                        }
+                        Text(ppuBootStatus)
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(.secondary)
                         Text("The upstream PPU loader now maps the ELF and initializes HLE, filesystem and syscall tables. Guest execution still requires the game-specific PPU lift and SPU workloads in the IPA.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -177,10 +189,26 @@ struct ContentView: View {
         }
         let functions = soulbrandt_ppu_host_function_count()
         let hleEntries = soulbrandt_ppu_host_hle_count()
+        canBootGame = functions > 0
+        ppuBootStatus = functions > 0
+            ? "Title lift present • ready to dispatch"
+            : "Cannot boot: this IPA has no Demon's Souls PPU lift"
         ebootStatus = String(
-            format: "EBOOT mapped • OPD 0x%08X • PPU funcs %u • HLE NIDs %u • not booted",
+            format: "EBOOT mapped • OPD 0x%08X • PPU funcs %u • HLE NIDs %u",
             entry, functions, hleEntries
         )
+    }
+
+    private func startGame() {
+        guard canBootGame, rsxBackendReady else { return }
+        let result = soulbrandt_ppu_host_start_game()
+        if result == 0 {
+            ppuBootStatus = "PPU entry dispatched on background thread • boot in progress"
+        } else if result == -2 {
+            ppuBootStatus = "Boot refused: no title-derived PPU functions are linked"
+        } else {
+            ppuBootStatus = "PPU boot dispatch failed (" + String(result) + ")"
+        }
     }
 
     private func initializeRSXBackend() {
@@ -203,6 +231,10 @@ struct ContentView: View {
 
     private func stopRSXBackend() {
         guard rsxBackendReady else { return }
+        if soulbrandt_ppu_host_is_running() != 0 {
+            rsxBackendStatus = "Guest execution is active; refusing to unmap its memory"
+            return
+        }
         soulbrandt_rsx_backend_shutdown()
         rsxBackendReady = false
         rsxBackendStatus = "RSX backend stopped"
