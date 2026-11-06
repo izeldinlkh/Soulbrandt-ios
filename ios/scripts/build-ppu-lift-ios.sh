@@ -90,7 +90,12 @@ compile_source() {
 if [[ -f "$RECOMP_DIR/ppu_recomp.h" ]]; then
   PPU_SOURCES=()
   while IFS= read -r source; do
-    [[ "$(basename "$source")" == "ppu_hle_nids.cpp" ]] && continue
+    # The iOS PPU-host archive generates and links the all-module NID table.
+    # The desktop lift also contains hle_nid_table.cpp; compiling it here would
+    # define ppu_hle_register_all() a second time when both archives are linked.
+    case "$(basename "$source")" in
+      ppu_hle_nids.cpp|hle_nid_table.cpp) continue ;;
+    esac
     PPU_SOURCES+=("$source")
   done < <(find "$RECOMP_DIR" -type f \( -name '*.c' -o -name '*.cpp' \) | sort)
 
