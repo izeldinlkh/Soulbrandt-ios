@@ -12,6 +12,8 @@ enum PS3BootImageStore {
         case unsupportedELF
         case invalidSize
         case incompleteRead
+        case paramsfoMissing
+        case invalidParamsfo
 
         var errorDescription: String? {
             switch self {
@@ -25,6 +27,10 @@ enum PS3BootImageStore {
                 return "EBOOT size is invalid or exceeds the 512 MiB safety limit."
             case .incompleteRead:
                 return "The disc reader returned an incomplete EBOOT chunk."
+            case .paramsfoMissing:
+                return "PS3_GAME/PARAM.SFO was not found on the disc."
+            case .invalidParamsfo:
+                return "PS3_GAME/PARAM.SFO is invalid or exceeds the 1 MiB safety limit."
             }
         }
     }
@@ -87,6 +93,29 @@ enum PS3BootImageStore {
         guard renameResult == 0 else {
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
+        return destination
+    }
+
+    static let paramsfoOutputName = "DecryptedPARAM.SFO"
+
+    static func extractParamsfo(from reader: any DiscImageFileSystem, into directory: URL) throws -> URL {
+        let entries = try reader.entries(path: "/PS3_GAME")
+        guard let entry = entries.first(where: {
+            !$0.isDirectory && $0.name.caseInsensitiveCompare("PARAM.SFO") == .orderedSame
+        }) else { throw ExtractionError.paramsfoMissing }
+
+        let sourcePath = "/PS3_GAME/\\(entry.name)"
+        let size = try reader.fileSize(path: sourcePath)
+        guard size >= 0x14, size <= 1024 * 1024 else {
+            throw ExtractionError.invalidParamsfo
+        }
+        let bytes = try reader.readFile(path: sourcePath, offset: 0, length: Int(size))
+        guard bytes.count == Int(size),
+              Array(bytes.prefix(4)) == [0x00, 0x50, 0x53, 0x46] else {
+            throw ExtractionError.invalidParamsfo
+        }
+        let destination = directory.appendingPathComponent(paramsfoOutputName)
+        try Data(bytes).write(to: destination, options: .atomic)
         return destination
     }
 }
