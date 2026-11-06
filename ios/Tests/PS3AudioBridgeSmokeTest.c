@@ -44,6 +44,8 @@ int main(void)
     assert(soulbrandt_audio_queued_frames() == 4u);
     assert(soulbrandt_audio_pull(output, 4u) == 0u);
     assert(soulbrandt_audio_write(input, 4u) == 4u);
+    /* Drain the remaining old frames before the wrapped producer tail. */
+    assert(soulbrandt_audio_pull(large, 4092u) == 4092u);
     assert(soulbrandt_audio_pull(output, 4u) == 4u);
     assert(output[0] == input[0] && output[7] == input[7]);
     free(large);
