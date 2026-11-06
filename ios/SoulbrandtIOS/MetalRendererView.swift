@@ -8,11 +8,12 @@ import SwiftUI
 /// When the RSX runtime is started, this view must hand drawable ownership to
 /// the upstream RSX backend instead of running a second renderer.
 struct MetalRendererView: View {
+    let rsxBackendReady: Bool
     @State private var status = "Preparing Metal preview…"
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            MetalRenderSurface { message in
+            MetalRenderSurface(rsxBackendReady: rsxBackendReady) { message in
                 status = message
             }
             Text(status)
@@ -28,10 +29,12 @@ struct MetalRendererView: View {
 }
 
 private struct MetalRenderSurface: UIViewRepresentable {
+    let rsxBackendReady: Bool
     let statusChanged: (String) -> Void
 
     final class Coordinator {
         var renderer: MetalPreviewRenderer?
+        var rsxBackendReady = false
     }
 
     func makeCoordinator() -> Coordinator {
@@ -49,7 +52,7 @@ private struct MetalRenderSurface: UIViewRepresentable {
         view.colorPixelFormat = .bgra8Unorm
         view.depthStencilPixelFormat = .invalid
         view.preferredFramesPerSecond = 60
-        view.isPaused = false
+        view.isPaused = rsxBackendReady
         view.enableSetNeedsDisplay = false
         view.framebufferOnly = true
         view.autoResizeDrawable = false
@@ -76,14 +79,23 @@ private struct MetalRenderSurface: UIViewRepresentable {
         }
 
         context.coordinator.renderer = renderer
+        context.coordinator.rsxBackendReady = rsxBackendReady
+        renderer.isActive = !rsxBackendReady
         view.delegate = renderer
-        statusChanged("\(device.name) • Metal pipeline ready • presenting diagnostic frames")
+        statusChanged(rsxBackendReady
+            ? "\(device.name) • RSX backend owns CAMetalLayer"
+            : "\(device.name) • Metal pipeline ready • presenting diagnostic frames")
         return view
     }
 
     func updateUIView(_ uiView: MTKView, context: Context) {
-        // The preview renderer owns this MTKView loop until the RSX runtime
-        // replaces it with direct CAMetalLayer drawable submission.
+        guard context.coordinator.rsxBackendReady != rsxBackendReady else { return }
+        context.coordinator.rsxBackendReady = rsxBackendReady
+        context.coordinator.renderer?.isActive = !rsxBackendReady
+        uiView.isPaused = rsxBackendReady
+        statusChanged(rsxBackendReady
+            ? "RSX backend owns CAMetalLayer • preview paused"
+            : "Metal preview resumed • synthetic diagnostic frames")
     }
 
     static func dismantleUIView(_ uiView: MTKView, coordinator: Coordinator) {
@@ -101,6 +113,7 @@ private struct MetalRenderSurface: UIViewRepresentable {
 /// acquisition, presentation and frame pacing all work on the target iPhone.
 /// This is intentionally not presented as a PS3/RSX frame.
 private final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
+    var isActive = true
     private let commandQueue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
     private let startedAt = CACurrentMediaTime()
@@ -178,6 +191,7 @@ private final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
     }
 
     func draw(in view: MTKView) {
+        guard isActive else { return }
         autoreleasepool {
             guard let pass = view.currentRenderPassDescriptor,
                   let drawable = view.currentDrawable,
