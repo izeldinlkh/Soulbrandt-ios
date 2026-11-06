@@ -85,6 +85,23 @@ jobs:
             -I"$PS3/runtime/ppu" -I"$PS3/runtime/memory" \
             -I"$PS3/runtime/syscalls" \
             "$PS3/libs/audio/cellAudio.c"
+      - name: Build the pinned PS3 runtime for iOS arm64
+        run: |
+          cmake -S "$RUNNER_TEMP/ps3recomp" -B "$RUNNER_TEMP/ps3recomp-ios-build" \
+            -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPS3RECOMP_BUILD_TESTS=OFF \
+            -DPS3RECOMP_RSX_HAL=OFF
+          cmake --build "$RUNNER_TEMP/ps3recomp-ios-build" \
+            --target ps3recomp_runtime --parallel 3
+          mkdir -p ios/build/ps3recomp-runtime
+          cp "$RUNNER_TEMP/ps3recomp-ios-build/libps3recomp_runtime.a" \
+            ios/build/ps3recomp-runtime/
       - name: Install XcodeGen and CMake tools
         run: brew install xcodegen cmake ninja
       - name: Build patched ps3recomp runtime for iOS
@@ -134,6 +151,12 @@ jobs:
           test -s build/Payload/Soulbrandt.app/COPYING
           cd build
           /usr/bin/zip -qry Soulbrandt-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Soulbrandt-PS3Recomp-iOS-runtime
+          path: ios/build/ps3recomp-runtime/libps3recomp_runtime.a
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: Soulbrandt-unsigned-IPA
