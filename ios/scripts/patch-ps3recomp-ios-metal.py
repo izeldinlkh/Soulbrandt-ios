@@ -75,7 +75,7 @@ def main() -> None:
     replace_once(
         root, "runtime/ppu/ppu_loader.cpp",
         r"""    FILE* f = fopen(path, "rb");
-    if (!f) { fprintf(stderr, "[ppu] cannot open %s\\n", path); return 0; }
+    if (!f) { fprintf(stderr, "[ppu] cannot open %s\n", path); return 0; }
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -83,8 +83,8 @@ def main() -> None:
     if (!file || fread(file, 1, sz, f) != (size_t)sz) { fclose(f); free(file); return 0; }
     fclose(f);
 
-    if (sz < 64 || memcmp(file, "\\x7F""ELF", 4) != 0 || file[4] != 2 /*ELFCLASS64*/ || file[5] != 2 /*MSB*/) {
-        fprintf(stderr, "[ppu] not a 64-bit big-endian ELF\\n"); free(file); return 0;
+    if (sz < 64 || memcmp(file, "\x7F""ELF", 4) != 0 || file[4] != 2 /*ELFCLASS64*/ || file[5] != 2 /*MSB*/) {
+        fprintf(stderr, "[ppu] not a 64-bit big-endian ELF\n"); free(file); return 0;
     }
     uint64_t fsz = (uint64_t)sz;
     uint32_t entry = (uint32_t)be64(file + 24);
@@ -105,7 +105,7 @@ def main() -> None:
             g_tls_vaddr  = (uint32_t)be64(ph + 16);
             g_tls_filesz = (uint32_t)be64(ph + 32);
             g_tls_memsz  = (uint32_t)be64(ph + 40);
-            fprintf(stderr, "[ppu] PT_TLS template vaddr=0x%08X filesz=0x%X memsz=0x%X\\n",
+            fprintf(stderr, "[ppu] PT_TLS template vaddr=0x%08X filesz=0x%X memsz=0x%X\n",
                     g_tls_vaddr, g_tls_filesz, g_tls_memsz);
             continue;
         }
@@ -120,13 +120,13 @@ def main() -> None:
          * guest VM (ppu_vm_size==0 = unchecked, matching the vm accessors).
          * Skip malformed/oversized segments rather than overflowing the host. */
         if (p_offset > fsz || p_filesz > fsz || p_offset + p_filesz > fsz) {
-            fprintf(stderr, "[ppu] segment %u file range 0x%llX+0x%llX exceeds ELF (0x%llX), skipped\\n",
+            fprintf(stderr, "[ppu] segment %u file range 0x%llX+0x%llX exceeds ELF (0x%llX), skipped\n",
                     i, (unsigned long long)p_offset, (unsigned long long)p_filesz, (unsigned long long)fsz);
             continue;
         }
         if (ppu_vm_size && (p_vaddr > ppu_vm_size || p_memsz > ppu_vm_size ||
                             p_vaddr + p_memsz > ppu_vm_size)) {
-            fprintf(stderr, "[ppu] segment %u vaddr 0x%llX+0x%llX exceeds VM (0x%X), skipped\\n",
+            fprintf(stderr, "[ppu] segment %u vaddr 0x%llX+0x%llX exceeds VM (0x%X), skipped\n",
                     i, (unsigned long long)p_vaddr, (unsigned long long)p_memsz, ppu_vm_size);
             continue;
         }
@@ -136,15 +136,15 @@ def main() -> None:
         loaded++;
     }
     free(file);
-    fprintf(stderr, "[ppu] loaded %d PT_LOAD segments, entry OPD 0x%08X\\n", loaded, entry);""",
+    fprintf(stderr, "[ppu] loaded %d PT_LOAD segments, entry OPD 0x%08X\n", loaded, entry);""",
         r"""    if (!path || !*path || !vm_base) return 0;
     FILE* f = fopen(path, "rb");
-    if (!f) { fprintf(stderr, "[ppu] cannot open %s\\n", path); return 0; }
+    if (!f) { fprintf(stderr, "[ppu] cannot open %s\n", path); return 0; }
     if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return 0; }
     long sz = ftell(f);
     if (sz < 64 || (uint64_t)sz > 512ULL * 1024ULL * 1024ULL ||
         fseek(f, 0, SEEK_SET) != 0) {
-        fprintf(stderr, "[ppu] invalid EBOOT file size\\n");
+        fprintf(stderr, "[ppu] invalid EBOOT file size\n");
         fclose(f);
         return 0;
     }
@@ -160,7 +160,7 @@ def main() -> None:
     const int32_t load_result = soulbrandt_guest_load_elf(file, (uint64_t)sz, &image);
     free(file);
     if (load_result != 0) {
-        fprintf(stderr, "[ppu] validated ELF loader rejected image (%d)\\n", load_result);
+        fprintf(stderr, "[ppu] validated ELF loader rejected image (%d)\n", load_result);
         return 0;
     }
 
@@ -168,7 +168,7 @@ def main() -> None:
     g_tls_filesz = image.tls_filesz;
     g_tls_memsz = image.tls_memsz;
     const uint32_t entry = image.entry_opd;
-    fprintf(stderr, "[ppu] validated and loaded %u PT_LOAD segments, entry OPD 0x%08X\\n",
+    fprintf(stderr, "[ppu] validated and loaded %u PT_LOAD segments, entry OPD 0x%08X\n",
             image.load_segment_count, entry);""",
     )
 
