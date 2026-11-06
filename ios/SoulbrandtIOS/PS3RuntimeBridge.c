@@ -1,25 +1,21 @@
 #include "PS3RuntimeBridge.h"
 #include "PS3PadBridge.h"
-#include <stddef.h>
-
-/* These symbols are supplied by the complete des_boot host link. The generic
- * runtime archive alone does not define all host globals or generated game
- * PPU/SPU symbols, so keep these imports weak until that host is available. */
-#if defined(__APPLE__)
-#define SOULBRANDT_RUNTIME_WEAK __attribute__((weak_import))
-#else
-#define SOULBRANDT_RUNTIME_WEAK __attribute__((weak))
-#endif
-extern int32_t cellPadInit(uint32_t max_connect) SOULBRANDT_RUNTIME_WEAK;
-extern int32_t cellPadEnd(void) SOULBRANDT_RUNTIME_WEAK;
-extern void cellPad_poll(void) SOULBRANDT_RUNTIME_WEAK;
-extern void rsx_metal_backend_set_layer(void *layer) SOULBRANDT_RUNTIME_WEAK;
-extern int rsx_metal_backend_init(uint32_t width, uint32_t height, const char *title) SOULBRANDT_RUNTIME_WEAK;
-extern void rsx_metal_backend_shutdown(void) SOULBRANDT_RUNTIME_WEAK;
 
 static int s_runtime_pad_ready;
 static int s_runtime_rsx_ready;
 static int s_runtime_layer_attached;
+
+#if defined(SOULBRANDT_LINKED_RUNTIME)
+/* These symbols are supplied by the complete des_boot host link. The generic
+ * ps3recomp_runtime archive alone is not sufficient: it leaves host globals
+ * and game-specific PPU/SPU symbols unresolved. */
+extern int32_t cellPadInit(uint32_t max_connect);
+extern int32_t cellPadEnd(void);
+extern void cellPad_poll(void);
+extern void rsx_metal_backend_set_layer(void *layer);
+extern int rsx_metal_backend_init(uint32_t width, uint32_t height, const char *title);
+extern void rsx_metal_backend_shutdown(void);
+#endif
 
 int32_t soulbrandt_runtime_prepare(void)
 {
@@ -29,13 +25,10 @@ int32_t soulbrandt_runtime_prepare(void)
     void *layer = soulbrandt_metal_layer_get();
     if (!layer) return -1000;
 
-    /* Never substitute dummy globals for a missing game boot host. */
-    if (!cellPadInit || !cellPadEnd || !cellPad_poll ||
-        !rsx_metal_backend_set_layer || !rsx_metal_backend_init ||
-        !rsx_metal_backend_shutdown) {
-        return -1001;
-    }
-
+#if !defined(SOULBRANDT_LINKED_RUNTIME)
+    /* Do not link a partial runtime or invent placeholder host/game symbols. */
+    return -1001;
+#else
     rsx_metal_backend_set_layer(layer);
     s_runtime_layer_attached = 1;
 
@@ -62,27 +55,36 @@ int32_t soulbrandt_runtime_prepare(void)
         s_runtime_pad_ready = 1;
     }
     return 0;
+#endif
 }
 
 void soulbrandt_runtime_poll_pad(void)
 {
-    if (s_runtime_pad_ready && cellPad_poll) cellPad_poll();
+#if defined(SOULBRANDT_LINKED_RUNTIME)
+    if (s_runtime_pad_ready) cellPad_poll();
+#endif
 }
 
 void soulbrandt_runtime_shutdown(void)
 {
+#if defined(SOULBRANDT_LINKED_RUNTIME)
     if (s_runtime_pad_ready) {
-        if (cellPadEnd) (void)cellPadEnd();
+        (void)cellPadEnd();
         s_runtime_pad_ready = 0;
     }
     if (s_runtime_rsx_ready) {
-        if (rsx_metal_backend_shutdown) rsx_metal_backend_shutdown();
+        rsx_metal_backend_shutdown();
         s_runtime_rsx_ready = 0;
     }
     if (s_runtime_layer_attached) {
-        if (rsx_metal_backend_set_layer) rsx_metal_backend_set_layer(NULL);
+        rsx_metal_backend_set_layer(NULL);
         s_runtime_layer_attached = 0;
     }
+#else
+    s_runtime_pad_ready = 0;
+    s_runtime_rsx_ready = 0;
+    s_runtime_layer_attached = 0;
+#endif
 }
 
 int32_t soulbrandt_runtime_is_ready(void)
