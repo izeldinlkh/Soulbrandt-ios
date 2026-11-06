@@ -192,13 +192,30 @@ struct ContentView: View {
                     }
                     if hasUSRDIR {
                         let userFiles = try reader.list(path: "/PS3_GAME/USRDIR")
-                        let hasEboot = userFiles.contains {
+                        let executable = userFiles.first {
                             !$0.isDirectory && (
                                 $0.name.caseInsensitiveCompare("EBOOT.ELF") == .orderedSame ||
                                 $0.name.caseInsensitiveCompare("EBOOT.BIN") == .orderedSame
                             )
                         }
-                        summary += hasEboot ? " • EBOOT file found" : " • EBOOT file not found"
+                        if let executable {
+                            let header = try reader.readFile(path: "/PS3_GAME/USRDIR/\(executable.name)", length: 20)
+                            if header.count >= 20,
+                               Array(header.prefix(4)) == [0x7f, 0x45, 0x4c, 0x46] {
+                                let is64Bit = header[4] == 2
+                                let isBigEndian = header[5] == 2
+                                let machine = (UInt16(header[18]) << 8) | UInt16(header[19])
+                                let architecture = machine == 21 ? " • PowerPC64" : ""
+                                summary += " • ELF header found\(architecture)\(is64Bit && isBigEndian ? " (64-bit big-endian)" : "")"
+                            } else if header.count >= 4,
+                                      Array(header.prefix(4)) == [0x53, 0x43, 0x45, 0x00] {
+                                summary += " • SELF container found; executable is not confirmed decrypted"
+                            } else {
+                                summary += " • EBOOT file found, but its format is unrecognized"
+                            }
+                        } else {
+                            summary += " • EBOOT file not found"
+                        }
                     }
                 } catch {
                     summary += " • PS3_GAME could not be fully inspected"
