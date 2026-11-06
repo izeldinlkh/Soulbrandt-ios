@@ -50,12 +50,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    char contents[12] = {0};
-    ssize_t count = udfread_file_read(file, contents, 11);
+    char contents[13] = {0};
+    ssize_t count = udfread_file_read(file, contents, 12);
     udfread_file_close(file);
     udfread_close(volume);
 
-    if (count != 11 || memcmp(contents, "udf-smoke-ok", 11) != 0) {
+    if (count != 12 || memcmp(contents, "udf-smoke-ok", 12) != 0) {
         fprintf(stderr, "UDF file read returned incorrect data (%zd bytes)\n", count);
         return 1;
     }
