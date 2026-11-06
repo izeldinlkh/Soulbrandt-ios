@@ -6,7 +6,8 @@ OUT="${2:-$PWD/ppu-host-ios-build}"
 PORT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 CXX="$(xcrun --sdk iphoneos -f clang++)"
-mkdir -p "$OUT/objects" "$OUT/generated"
+mkdir -p "$OUT/objects" "$OUT/generated" "$OUT/include"
+cp "$PORT_ROOT/ios/SoulbrandtIOS/PS3DiscVFSBridge.h" "$OUT/include/"
 
 python3 "$PS3_ROOT/tools/gen_hle_nids.py" \
   --out "$OUT/generated/ppu_hle_nids.cpp" --all
