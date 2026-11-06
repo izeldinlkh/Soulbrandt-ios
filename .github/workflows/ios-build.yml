@@ -50,6 +50,8 @@ jobs:
         run: bash ios/scripts/run-guest-memory-smoke-test.sh
       - name: Run PPU host bridge lifecycle smoke test
         run: bash ios/scripts/run-ppu-host-bridge-smoke-test.sh
+      - name: Run PPU host boot-dispatch smoke test
+        run: bash ios/scripts/run-ppu-host-boot-dispatch-smoke-test.sh
 
   build-ios-shell:
     runs-on: macos-26-intel
