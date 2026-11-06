@@ -30,7 +30,15 @@ targets:
         SWIFT_EMIT_LOC_STRINGS: YES
         SWIFT_OBJC_BRIDGING_HEADER: SoulbrandtIOS/Soulbrandt-Bridging-Header.h
         HEADER_SEARCH_PATHS:
+          - $(inherited)
           - $(SRCROOT)/ThirdParty/libudfread/src
+          - $(SRCROOT)/build/ps3recomp-runtime/include
+        LIBRARY_SEARCH_PATHS:
+          - $(inherited)
+          - $(SRCROOT)/build/ps3recomp-runtime
+        OTHER_LDFLAGS:
+          - $(inherited)
+          - -lps3recomp_runtime
         LIBRARY_SEARCH_PATHS:
           - $(inherited)
           - $(SRCROOT)/build/ps3recomp-runtime
@@ -46,5 +54,9 @@ targets:
           - HAVE_UNISTD_H=1
           - HAVE_FCNTL_H=1
           - HAVE_PTHREAD_H=1
+    dependencies:
+      - sdk: Metal.framework
+      - sdk: QuartzCore.framework
+      - sdk: Foundation.framework
     scheme:
       testTargets: []

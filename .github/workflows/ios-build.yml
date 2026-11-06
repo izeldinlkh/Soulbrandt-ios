@@ -117,8 +117,12 @@ jobs:
           cmake --build "$BUILD" --target ps3recomp_runtime --parallel 2
           RUNTIME_LIB="$(find "$BUILD" -name 'libps3recomp_runtime.a' -type f -size +0c -print -quit)"
           test -n "$RUNTIME_LIB"
-          mkdir -p ios/build/ps3recomp-runtime
+          mkdir -p ios/build/ps3recomp-runtime/include/ps3emu
           cp "$RUNTIME_LIB" ios/build/ps3recomp-runtime/
+          cp "$PS3/libs/video/rsx_metal_backend.h" ios/build/ps3recomp-runtime/include/
+          cp -R "$PS3/include/ps3emu/." ios/build/ps3recomp-runtime/include/ps3emu/
+          test -s ios/build/ps3recomp-runtime/include/rsx_metal_backend.h
+          test -s ios/build/ps3recomp-runtime/include/ps3emu/ps3types.h
       - name: Run ISO reader smoke test
         run: bash ios/scripts/run-iso-smoke-test.sh
       - name: Generate Xcode project

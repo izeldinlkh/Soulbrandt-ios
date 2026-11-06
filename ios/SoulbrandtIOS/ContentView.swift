@@ -9,6 +9,8 @@ struct ContentView: View {
     @State private var volumeSummary: String?
     @State private var importError: String?
     @State private var isImporting = false
+    @State private var rsxBackendReady = false
+    @State private var rsxBackendStatus = "RSX backend not initialized"
 
     private let savedISOKey = "Soulbrandt.importedISOName"
     private let savedSummaryKey = "Soulbrandt.importedISOSummary"
@@ -68,7 +70,28 @@ struct ContentView: View {
                             .aspectRatio(16.0 / 9.0, contentMode: .fit)
                             .frame(maxWidth: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                        Text("Native Metal drawable surface reserved for the PS3 RSX renderer. The game runtime is not started yet.")
+                        HStack(spacing: 10) {
+                            Button {
+                                initializeRSXBackend()
+                            } label: {
+                                Label("Initialize RSX backend", systemImage: "play.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(rsxBackendReady)
+
+                            if rsxBackendReady {
+                                Button {
+                                    stopRSXBackend()
+                                } label: {
+                                    Label("Stop", systemImage: "stop.fill")
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                        Text(rsxBackendStatus)
+                            .font(.footnote.monospaced())
+                            .foregroundStyle(rsxBackendReady ? .green : .secondary)
+                        Text("This initializes the native RSX Metal backend and attaches it to the drawable surface. It does not boot the game; guest PPU/SPU code and game data are still required.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -115,7 +138,30 @@ struct ContentView: View {
             .task {
                 restoreImportedImage()
             }
+            .onDisappear {
+                stopRSXBackend()
+            }
         }
+    }
+
+
+    private func initializeRSXBackend() {
+        let result = soulbrandt_rsx_backend_initialize()
+        if result == 0 {
+            rsxBackendReady = true
+            rsxBackendStatus = "RSX Metal backend initialized • waiting for guest commands"
+        } else {
+            soulbrandt_rsx_backend_shutdown()
+            rsxBackendReady = false
+            rsxBackendStatus = "RSX Metal initialization failed (\(result))"
+        }
+    }
+
+    private func stopRSXBackend() {
+        guard rsxBackendReady else { return }
+        soulbrandt_rsx_backend_shutdown()
+        rsxBackendReady = false
+        rsxBackendStatus = "RSX backend stopped"
     }
 
     private func restoreImportedImage() {
