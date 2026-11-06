@@ -62,3 +62,13 @@ layer and clears the bridge when dismantled. Once the runtime is linked, its
 iOS startup must pass this pointer to the patched
 `rsx_metal_backend_set_layer()` before `rsx_metal_backend_init()`. The current
 IPA does not yet link or call that backend.
+
+
+### RSX drawable ownership
+
+The iOS Metal view is a surface owner, not a second renderer. It publishes its
+`CAMetalLayer` through the C bridge and deliberately pauses MTKView's own draw
+loop. This avoids two independent renderers racing to acquire and present
+`CAMetalLayer` drawables. The patched upstream RSX backend is intended to own
+`nextDrawable()`, command encoding, and presentation once the PS3 runtime is
+linked and started. The current app still does not start that runtime.
