@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Run ISO reader smoke test
         run: bash ios/scripts/run-iso-smoke-test.sh
 
@@ -33,6 +35,8 @@ jobs:
     runs-on: macos-26-intel
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Verify runner Xcode
         run: |
           xcode-select -p

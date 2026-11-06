@@ -9,13 +9,13 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 - The imported filename and inspection summary are remembered across launches.
 - Import is retained even when the image uses a filesystem the prototype cannot parse.
 - GameController framework discovery and basic Extended Gamepad input-event monitoring.
-- Read-only ISO-9660 primary-volume and Joliet directory parsing, with bounded random-access file reads.
+- Read-only ISO-9660/Joliet and UDF directory/file access, with bounded random-access reads. UDF is provided by the LGPL-2.1 libudfread submodule.
 - Synthetic ISO smoke test run by the macOS CI workflow.
 
 ## Known limitations
 
 - No PS3 boot or integration with ps3recomp's cellFs VFS.
-- ISO reader does not support UDF, multi-extent files, interleaved files, or Rock Ridge extensions. A PS3 Blu-ray ISO may require UDF support; a successful import does not prove the game filesystem can be read.
+- ISO-9660 reader does not support multi-extent files, interleaved files, or Rock Ridge extensions. UDF images are handled by libudfread; validation against the target BLUS30443 disc image is still pending.
 - The importer inspects the EBOOT header (ELF, likely SELF, or unknown), but an ELF header alone does not prove the full executable or the other required game/firmware files are decrypted and suitable for recompilation.
 - The desktop setup currently expects the supported US BLUS30443 v1.00 dump plus 28 decrypted game/firmware files; importing a single ISO does not satisfy that build pipeline.
 - Controller input is detected but not yet mapped into Soulbrandt's input abstraction.

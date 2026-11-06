@@ -153,6 +153,50 @@ struct ContentView: View {
         )[0].appendingPathComponent("GameImages", isDirectory: true)
     }
 
+    nonisolated private static func inspectDisc(_ reader: any DiscImageFileSystem) throws -> String {
+        let rootEntries = try reader.entries(path: "/")
+        let hasPS3Game = rootEntries.contains {
+            $0.isDirectory && $0.name.caseInsensitiveCompare("PS3_GAME") == .orderedSame
+        }
+        var summary = "\(reader.filesystemName) filesystem • " + (
+            hasPS3Game ? "PS3_GAME directory found" : "PS3_GAME was not found in the root"
+        )
+        guard hasPS3Game else { return summary }
+
+        let gameEntries = try reader.entries(path: "/PS3_GAME")
+        let hasUSRDIR = gameEntries.contains {
+            $0.isDirectory && $0.name.caseInsensitiveCompare("USRDIR") == .orderedSame
+        }
+        guard hasUSRDIR else { return summary + " • PS3_GAME/USRDIR was not found" }
+
+        let userFiles = try reader.entries(path: "/PS3_GAME/USRDIR")
+        let executable = userFiles.first {
+            !$0.isDirectory && (
+                $0.name.caseInsensitiveCompare("EBOOT.ELF") == .orderedSame ||
+                $0.name.caseInsensitiveCompare("EBOOT.BIN") == .orderedSame
+            )
+        }
+        guard let executable else { return summary + " • EBOOT file not found" }
+
+        let header = try reader.readFile(
+            path: "/PS3_GAME/USRDIR/\(executable.name)", offset: 0, length: 20
+        )
+        if header.count >= 20,
+           Array(header.prefix(4)) == [0x7f, 0x45, 0x4c, 0x46] {
+            let is64Bit = header[4] == 2
+            let isBigEndian = header[5] == 2
+            let machine = (UInt16(header[18]) << 8) | UInt16(header[19])
+            let architecture = machine == 21 ? " • PowerPC64" : ""
+            summary += " • ELF header found\(architecture)\(is64Bit && isBigEndian ? " (64-bit big-endian)" : "")"
+        } else if header.count >= 4,
+                  Array(header.prefix(4)) == [0x53, 0x43, 0x45, 0x00] {
+            summary += " • SELF container found; executable is not confirmed decrypted"
+        } else {
+            summary += " • EBOOT file found, but its format is unrecognized"
+        }
+        return summary
+    }
+
     nonisolated private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String) {
         let fileManager = FileManager.default
         let support = fileManager.urls(
@@ -182,58 +226,18 @@ struct ContentView: View {
         if let coordinationError { throw coordinationError }
         if let copyError { throw copyError }
 
-        var summary = "Imported. Filesystem not recognized by the current ISO-9660/Joliet reader; UDF support is still needed."
+        var summary = "Imported. Disc filesystem could not be read."
         do {
-            let reader = try ISO9660Reader(url: temporary)
-            let rootEntries = try reader.list()
-            let hasPS3Game = rootEntries.contains {
-                $0.isDirectory && $0.name.caseInsensitiveCompare("PS3_GAME") == .orderedSame
+            let reader: any DiscImageFileSystem
+            do {
+                reader = try ISO9660Reader(url: temporary)
+            } catch {
+                // Most PS3 Blu-ray images use UDF rather than ISO-9660.
+                reader = try UDFReader(url: temporary)
             }
-            let discText = hasPS3Game
-                ? "PS3_GAME directory found"
-                : "PS3_GAME was not found in the root"
-            let fsText = reader.isJoliet ? "Joliet" : "ISO-9660"
-            summary = "\(fsText) filesystem • \(discText)"
-            if hasPS3Game {
-                do {
-                    let gameEntries = try reader.list(path: "/PS3_GAME")
-                    let hasUSRDIR = gameEntries.contains {
-                        $0.isDirectory && $0.name.caseInsensitiveCompare("USRDIR") == .orderedSame
-                    }
-                    if hasUSRDIR {
-                        let userFiles = try reader.list(path: "/PS3_GAME/USRDIR")
-                        let executable = userFiles.first {
-                            !$0.isDirectory && (
-                                $0.name.caseInsensitiveCompare("EBOOT.ELF") == .orderedSame ||
-                                $0.name.caseInsensitiveCompare("EBOOT.BIN") == .orderedSame
-                            )
-                        }
-                        if let executable {
-                            let header = try reader.readFile(path: "/PS3_GAME/USRDIR/\(executable.name)", length: 20)
-                            if header.count >= 20,
-                               Array(header.prefix(4)) == [0x7f, 0x45, 0x4c, 0x46] {
-                                let is64Bit = header[4] == 2
-                                let isBigEndian = header[5] == 2
-                                let machine = (UInt16(header[18]) << 8) | UInt16(header[19])
-                                let architecture = machine == 21 ? " • PowerPC64" : ""
-                                summary += " • ELF header found\(architecture)\(is64Bit && isBigEndian ? " (64-bit big-endian)" : "")"
-                            } else if header.count >= 4,
-                                      Array(header.prefix(4)) == [0x53, 0x43, 0x45, 0x00] {
-                                summary += " • SELF container found; executable is not confirmed decrypted"
-                            } else {
-                                summary += " • EBOOT file found, but its format is unrecognized"
-                            }
-                        } else {
-                            summary += " • EBOOT file not found"
-                        }
-                    }
-                } catch {
-                    summary += " • PS3_GAME could not be fully inspected"
-                }
-            }
+            summary = try Self.inspectDisc(reader)
         } catch {
-            // Keep the imported image even when its filesystem is not supported by this prototype.
-            summary = "Imported. ISO-9660/Joliet inspection unavailable: \(error.localizedDescription)"
+            summary = "Imported. Disc filesystem inspection failed: \(error.localizedDescription)"
         }
 
         // The temporary file is in the same directory/volume as the destination.
