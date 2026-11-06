@@ -9,13 +9,13 @@ Workflow run [42295164427](https://github.com/izeldinlkh/Soulbrandt-ios/actions/
 - The generated all-module ppu_hle_nids.cpp compiles for the same target.
 - Those objects archive into libSoulbrandtPPUHost.a.
 - The generic ps3recomp_runtime archive and unsigned iOS app/IPA also build.
-- The PPU host archive is a separate CI artifact. It is not linked into the app and no guest code runs yet.
+- The PPU host archive is now linked into the iOS app target, with a no-game fallback function table so the shell can link before title-derived code exists. No guest code runs yet.
 
 ## What the host archive depends on
 
 The archive is the same four-source PPU boot scaffold selected by upstream templates/project/CMakeLists.txt, plus the generated HLE NID registration unit. The generated HLE unit references the runtime implemented HLE handlers; the generic ps3recomp_runtime target builds the corresponding libs/** sources.
 
-The PPU loader also expects the title-generated function_table[] and function_table_count. These are emitted with the lifted PPU sources, not supplied by the generic runtime. Calling ppu_recomp_register() without that title output cannot produce a usable function registry.
+The PPU loader expects the title-generated function_table[] and function_table_count. These are emitted with the lifted PPU sources, not supplied by the generic runtime. The current PS3PPUNoGameLift.cpp provides an empty fallback only so the host shell links; ppu_function_count() remains zero, so this fallback cannot execute a game.
 
 ## Required boot sequence
 
@@ -30,7 +30,7 @@ The upstream template runner establishes this order:
 8. Initialize LV2 syscall dispatch with lv2_init_syscalls().
 9. Install the guest-callback bridge, start a frame/FIFO pump, then dispatch the entry OPD with ppu_run().
 
-The iOS host must adapt the frame pump to the app lifecycle and Metal layer. It must not start a competing MTKView render loop.
+The iOS host now has an app-owned RSX frame-pump thread that drives GCM vblank/flip callbacks, drains the FIFO between ticks, and presents only completed guest flips. The MTKView remains a drawable owner and does not run a competing render loop. The PPU bridge loads an extracted EBOOT and calls the upstream registration sequence, but still does not dispatch ppu_run().
 
 ## iOS-specific build decision
 
