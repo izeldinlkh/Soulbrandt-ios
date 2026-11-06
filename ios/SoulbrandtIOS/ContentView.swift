@@ -16,6 +16,7 @@ struct ContentView: View {
 
     private let savedISOKey = "Soulbrandt.importedISOName"
     private let savedSummaryKey = "Soulbrandt.importedISOSummary"
+    private let savedEbootISOKey = "Soulbrandt.extractedEbootISOName"
 
     var body: some View {
         NavigationStack {
@@ -220,7 +221,8 @@ struct ContentView: View {
         importedISOName = name
         volumeSummary = UserDefaults.standard.string(forKey: savedSummaryKey) ?? "Stored in app storage."
         let eboot = gameImagesDirectory().appendingPathComponent(PS3BootImageStore.outputName)
-        if FileManager.default.fileExists(atPath: eboot.path) {
+        if UserDefaults.standard.string(forKey: savedEbootISOKey) == name,
+           FileManager.default.fileExists(atPath: eboot.path) {
             extractedEbootURL = eboot
             ebootStatus = "Decrypted EBOOT extracted • ready to load"
         }
@@ -260,6 +262,11 @@ struct ContentView: View {
                     volumeSummary = outcome.summary
                     extractedEbootURL = outcome.ebootURL
                     ebootStatus = outcome.ebootStatus
+                    if outcome.ebootURL != nil {
+                        UserDefaults.standard.set(outcome.name, forKey: savedEbootISOKey)
+                    } else {
+                        UserDefaults.standard.removeObject(forKey: savedEbootISOKey)
+                    }
                     UserDefaults.standard.set(outcome.name, forKey: savedISOKey)
                     UserDefaults.standard.set(outcome.summary, forKey: savedSummaryKey)
                 } catch {
