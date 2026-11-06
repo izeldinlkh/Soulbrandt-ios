@@ -444,7 +444,7 @@ static void pad_shutdown_backend(void) {}
         root, "runtime/ppu/ppu_fs.cpp",
         '/* ---- handlers ---- */',
         '''#if defined(__APPLE__)
-/* funopen lets the existing FILE*/fread/fseek/fclose handlers consume an ISO
+/* funopen lets the existing stdio fread/fseek/fclose handlers consume an ISO
  * file without extracting it. The cookie owns a VFS handle and a byte offset. */
 struct ps3_disc_cookie { uint64_t handle, size, offset; };
 static int ps3_disc_read(void* opaque, char* buffer, int length)
@@ -463,7 +463,7 @@ static fpos_t ps3_disc_seek(void* opaque, fpos_t offset, int whence)
     int64_t base = whence == SEEK_SET ? 0 :
                    whence == SEEK_CUR ? (int64_t)c->offset :
                    whence == SEEK_END ? (int64_t)c->size : -1;
-    if (base < 0 || (offset < 0 && base < -offset) ||
+    if (base < 0 || (offset < 0 && offset < -base) ||
         (offset > 0 && base > INT64_MAX - offset)) {
         errno = EINVAL; return (fpos_t)-1;
     }
