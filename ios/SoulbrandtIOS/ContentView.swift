@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var isImporting = false
 
     private let savedISOKey = "Soulbrandt.importedISOName"
+    private let savedSummaryKey = "Soulbrandt.importedISOSummary"
 
     var body: some View {
         NavigationStack {
@@ -94,7 +95,7 @@ struct ContentView: View {
             return
         }
         importedISOName = name
-        volumeSummary = "Stored in app storage. Re-import to inspect the disc."
+        volumeSummary = UserDefaults.standard.string(forKey: savedSummaryKey) ?? "Stored in app storage."
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {
@@ -122,6 +123,7 @@ struct ContentView: View {
                     importedISOName = outcome.name
                     volumeSummary = outcome.summary
                     UserDefaults.standard.set(outcome.name, forKey: savedISOKey)
+                    UserDefaults.standard.set(outcome.summary, forKey: savedSummaryKey)
                 } catch {
                     importError = "Import failed: \(error.localizedDescription)"
                 }
@@ -150,23 +152,53 @@ struct ContentView: View {
         defer { try? fileManager.removeItem(at: temporary) }
 
         try fileManager.copyItem(at: source, to: temporary)
-        let reader = try ISO9660Reader(url: temporary)
-        let rootEntries = try reader.list()
-        let hasPS3Game = rootEntries.contains {
-            $0.isDirectory && $0.name.caseInsensitiveCompare("PS3_GAME") == .orderedSame
+
+        var summary = "Imported. Filesystem not recognized by the current ISO-9660/Joliet reader; UDF support is still needed."
+        do {
+            let reader = try ISO9660Reader(url: temporary)
+            let rootEntries = try reader.list()
+            let hasPS3Game = rootEntries.contains {
+                $0.isDirectory && $0.name.caseInsensitiveCompare("PS3_GAME") == .orderedSame
+            }
+            let discText = hasPS3Game
+                ? "PS3_GAME directory found"
+                : "PS3_GAME was not found in the root"
+            let fsText = reader.isJoliet ? "Joliet" : "ISO-9660"
+            summary = "\(fsText) filesystem • \(discText)"
+            if hasPS3Game {
+                do {
+                    let gameEntries = try reader.list(path: "/PS3_GAME")
+                    let hasUSRDIR = gameEntries.contains {
+                        $0.isDirectory && $0.name.caseInsensitiveCompare("USRDIR") == .orderedSame
+                    }
+                    if hasUSRDIR {
+                        let userFiles = try reader.list(path: "/PS3_GAME/USRDIR")
+                        let hasEboot = userFiles.contains {
+                            !$0.isDirectory && (
+                                $0.name.caseInsensitiveCompare("EBOOT.ELF") == .orderedSame ||
+                                $0.name.caseInsensitiveCompare("EBOOT.BIN") == .orderedSame
+                            )
+                        }
+                        summary += hasEboot ? " • EBOOT file found" : " • EBOOT file not found"
+                    }
+                } catch {
+                    summary += " • PS3_GAME could not be fully inspected"
+                }
+            }
+        } catch {
+            // Keep the imported image even when its filesystem is not supported by this prototype.
+            summary = "Imported. ISO-9660/Joliet inspection unavailable: \(error.localizedDescription)"
         }
+
         if fileManager.fileExists(atPath: destination.path) {
             try fileManager.removeItem(at: destination)
         }
         try fileManager.moveItem(at: temporary, to: destination)
 
-        let size = (try? fileManager.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
+        let attributes = try fileManager.attributesOfItem(atPath: destination.path)
+        let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
         let sizeText = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
-        let discText = hasPS3Game
-            ? "PS3_GAME directory found"
-            : "ISO opened, but PS3_GAME was not found in the root"
-        let fsText = reader.isJoliet ? "Joliet filesystem" : "ISO-9660 filesystem"
-        return (source.lastPathComponent, "\(sizeText) • \(fsText) • \(discText)")
+        return (source.lastPathComponent, "\(sizeText) • \(summary)")
     }
 }
 
