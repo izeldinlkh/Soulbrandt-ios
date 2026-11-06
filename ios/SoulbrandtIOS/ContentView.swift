@@ -67,7 +67,7 @@ struct ContentView: View {
                         MetalRendererView()
                             .frame(height: 170)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
-                        Text("Metal device, render pipeline and frame presentation test. The PS3 RSX renderer is not connected yet.")
+                        Text("Native Metal drawable surface reserved for the PS3 RSX renderer. The game runtime is not started yet.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
