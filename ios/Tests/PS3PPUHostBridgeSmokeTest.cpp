@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
-#include <cstdlib>
 
 typedef void (*ps3_guest_caller_fn)(uint32_t opd_addr,
                                     uint64_t arg0, uint64_t arg1,

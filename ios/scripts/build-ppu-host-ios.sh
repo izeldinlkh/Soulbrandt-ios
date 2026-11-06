@@ -56,4 +56,4 @@ done
 /usr/bin/libtool -static -o "$OUT/libSoulbrandtPPUHost.a" "$OUT"/objects/*.o
 test -s "$OUT/libSoulbrandtPPUHost.a"
 echo "Built iOS PPU host scaffold archive: $OUT/libSoulbrandtPPUHost.a"
-echo "This archive is not linked into the app yet; it awaits generated title lift code."
+echo "The PPU host archive is linked into the iOS app; generated title PPU lift code is still required."

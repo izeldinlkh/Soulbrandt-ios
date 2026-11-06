@@ -167,7 +167,7 @@ struct ContentView: View {
         do {
             try PS3StorageOverlay.configure()
         } catch {
-            ebootStatus = "Could not prepare save/cache storage: \\(error.localizedDescription)"
+            ebootStatus = "Could not prepare save/cache storage: \(error.localizedDescription)"
             return
         }
         let entry = url.path.withCString { soulbrandt_ppu_host_load_elf($0) }
@@ -187,7 +187,7 @@ struct ContentView: View {
         let result = soulbrandt_rsx_backend_initialize()
         if result == 0 {
             rsxBackendReady = true
-            rsxBackendStatus = "4 GiB guest address space reserved • RSX Metal + native cellPad initialized • no game boot host yet"
+            rsxBackendStatus = "4 GiB guest VM reserved • RSX Metal, controller, frame pump and PPU/HLE host linked • title code not yet built"
         } else {
             soulbrandt_rsx_backend_shutdown()
             rsxBackendReady = false

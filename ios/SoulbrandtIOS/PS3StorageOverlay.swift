@@ -24,7 +24,7 @@ enum PS3StorageOverlay {
                 domain: "SoulbrandtStorageOverlay",
                 code: Int(result),
                 userInfo: [NSLocalizedDescriptionKey:
-                    "The PPU host could not configure persistent PS3 HDD storage (\\(result))."]
+                    "The PPU host could not configure persistent PS3 HDD storage (\(result))."]
             )
         }
     }
