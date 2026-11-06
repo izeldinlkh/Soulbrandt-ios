@@ -111,15 +111,23 @@ struct ContentView: View {
                 throw ImportFailure.notISO
             }
 
-            let hasAccess = source.startAccessingSecurityScopedResource()
-            guard hasAccess else { throw ImportFailure.accessDenied }
+            // File-provider URLs normally need a security-scoped grant. URLs that
+            // already live inside this app/container may be directly readable without
+            // one (a relevant case for containerized installs such as LiveContainer).
+            let hasSecurityScope = source.startAccessingSecurityScopedResource()
+            let isDirectlyReadable = FileManager.default.isReadableFile(atPath: source.path)
+            guard hasSecurityScope || isDirectlyReadable else {
+                throw ImportFailure.accessDenied
+            }
 
             isImporting = true
             importError = nil
 
             Task {
                 defer {
-                    source.stopAccessingSecurityScopedResource()
+                    if hasSecurityScope {
+                        source.stopAccessingSecurityScopedResource()
+                    }
                     isImporting = false
                 }
                 do {
