@@ -284,6 +284,10 @@ struct ContentView: View {
 
             // A different image must not replace the mounted VFS while the
             // previous guest VM or PPU entry is still live.
+            guard soulbrandt_ppu_host_is_running() == 0 else {
+                importError = "Cannot replace the disc while the game is executing. Relaunch the app first."
+                return
+            }
             if rsxBackendReady {
                 stopRSXBackend()
             }
