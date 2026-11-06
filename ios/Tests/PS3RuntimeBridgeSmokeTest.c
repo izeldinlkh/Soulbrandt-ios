@@ -10,6 +10,15 @@ static int s_rsx_init_result;
 static int s_pad_init_result;
 static int s_rsx_init_calls, s_rsx_shutdown_calls, s_pad_init_calls;
 static int s_pad_end_calls, s_pad_poll_calls, s_layer_set_calls;
+static int s_pump_start_result;
+static int s_pump_start_calls, s_pump_stop_calls;
+
+int32_t soulbrandt_rsx_frame_pump_start(void)
+{
+    s_pump_start_calls++;
+    return s_pump_start_result;
+}
+void soulbrandt_rsx_frame_pump_stop(void) { s_pump_stop_calls++; }
 
 void *soulbrandt_metal_layer_get(void) { return s_layer; }
 void soulbrandt_metal_layer_set(void *layer) { s_layer = layer; }
@@ -49,6 +58,7 @@ int main(void)
     assert(soulbrandt_runtime_prepare() == 0);
     assert(soulbrandt_runtime_is_ready());
     assert(s_rsx_init_calls == 1 && s_pad_init_calls == 1);
+    assert(s_pump_start_calls == 1 && s_pump_stop_calls == 0);
     assert(soulbrandt_guest_memory_is_ready());
 
     /* Repeated SwiftUI updates must not initialise the runtime twice. */
@@ -60,6 +70,7 @@ int main(void)
     soulbrandt_runtime_shutdown();
     assert(!soulbrandt_runtime_is_ready());
     assert(s_pad_end_calls == 1 && s_rsx_shutdown_calls == 1);
+    assert(s_pump_stop_calls == 1);
     assert(!soulbrandt_guest_memory_is_ready());
     assert(s_layer == NULL);
 
@@ -80,13 +91,26 @@ int main(void)
     assert(s_rsx_shutdown_calls == 3 && s_layer == NULL);
     assert(!soulbrandt_guest_memory_is_ready());
 
-    /* Both subsystems can be started cleanly after a failed attempt. */
+    /* A frame-pump start failure must unwind pad, RSX, layer and guest VM. */
     s_pad_init_result = 0;
+    s_pump_start_result = -5;
+    s_layer = &s_layer_token;
+    assert(soulbrandt_runtime_prepare() == -1205);
+    assert(!soulbrandt_runtime_is_ready());
+    assert(s_pad_end_calls == 2 && s_rsx_shutdown_calls == 4);
+    assert(s_pump_start_calls == 2 && s_pump_stop_calls == 1);
+    assert(s_layer == NULL);
+    assert(!soulbrandt_guest_memory_is_ready());
+
+    /* All subsystems can be started cleanly after the failed pump attempt. */
+    s_pump_start_result = 0;
     s_layer = &s_layer_token;
     assert(soulbrandt_runtime_prepare() == 0);
     assert(soulbrandt_runtime_is_ready());
+    assert(s_pump_start_calls == 3);
     soulbrandt_runtime_shutdown();
     assert(!soulbrandt_runtime_is_ready());
+    assert(s_pump_stop_calls == 2);
 
     puts("PS3 runtime bridge lifecycle smoke test passed");
     return 0;
