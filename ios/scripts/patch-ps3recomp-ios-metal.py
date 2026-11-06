@@ -161,9 +161,9 @@ int  rsx_metal_backend_init(u32 width, u32 height, const char* title);""",
 
 #if PAD_BACKEND_IOS_NATIVE
 typedef struct SoulbrandtPadState {
-    uint16_t buttons;
-    uint8_t left_x, left_y, right_x, right_y;
-    uint8_t analog_l2, analog_r2;
+    u16 buttons;
+    u8 left_x, left_y, right_x, right_y;
+    u8 analog_l2, analog_r2;
 } SoulbrandtPadState;
 extern void soulbrandt_pad_state_read(SoulbrandtPadState* out_state);
 
