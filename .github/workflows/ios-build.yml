@@ -70,6 +70,12 @@ jobs:
             -target arm64-apple-ios16.0 -isysroot "$SDK" \
             -I"$PS3/include" -I"$PS3/libs/video" \
             "$PS3/libs/video/rsx_shader_msl.cpp"
+          xcrun --sdk iphoneos clang -fsyntax-only -std=c17 \
+            -DPS3RECOMP_PAD_IOS_NATIVE=1 \
+            -target arm64-apple-ios16.0 -isysroot "$SDK" \
+            -I"$PS3/include" -I"$PS3/libs/input" -I"$PS3/runtime" \
+            -I"$PS3/runtime/ppu" -I"$PS3/runtime/platform" \
+            "$PS3/libs/input/cellPad.c"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Run ISO reader smoke test
