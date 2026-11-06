@@ -64,6 +64,114 @@ def main() -> None:
 #else""",
         )
 
+    # Reuse the app's fully bounds-checked ELF loader. The upstream loader
+    # historically skipped malformed PT_LOAD segments and could still return
+    # the ELF entry point, making a partial image look like a successful load.
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        '#include <string.h>\n',
+        '#include <string.h>\n#include "PS3GuestMemory.h"\n',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        r"""    FILE* f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "[ppu] cannot open %s\\n", path); return 0; }
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    uint8_t* file = (uint8_t*)malloc(sz);
+    if (!file || fread(file, 1, sz, f) != (size_t)sz) { fclose(f); free(file); return 0; }
+    fclose(f);
+
+    if (sz < 64 || memcmp(file, "\\x7F""ELF", 4) != 0 || file[4] != 2 /*ELFCLASS64*/ || file[5] != 2 /*MSB*/) {
+        fprintf(stderr, "[ppu] not a 64-bit big-endian ELF\\n"); free(file); return 0;
+    }
+    uint64_t fsz = (uint64_t)sz;
+    uint32_t entry = (uint32_t)be64(file + 24);
+    uint64_t phoff = be64(file + 32);
+    uint16_t phentsize = be16(file + 54);
+    uint16_t phnum = be16(file + 56);
+
+    int loaded = 0;
+    for (uint16_t i = 0; i < phnum; i++) {
+        uint64_t ph_off = phoff + (uint64_t)i * phentsize;
+        if (ph_off + 56 > fsz) break;   /* program header itself out of the file */
+        const uint8_t* ph = file + ph_off;
+        uint32_t p_type = be32(ph + 0);
+        if (p_type == 7 /*PT_TLS*/) {
+            /* The thread-local template: its initialised bytes live in vm_base
+             * at p_vaddr (covered by a PT_LOAD too). ppu_run copies it into the
+             * main thread's TLS image and points r13 at it. */
+            g_tls_vaddr  = (uint32_t)be64(ph + 16);
+            g_tls_filesz = (uint32_t)be64(ph + 32);
+            g_tls_memsz  = (uint32_t)be64(ph + 40);
+            fprintf(stderr, "[ppu] PT_TLS template vaddr=0x%08X filesz=0x%X memsz=0x%X\\n",
+                    g_tls_vaddr, g_tls_filesz, g_tls_memsz);
+            continue;
+        }
+        if (p_type != 1 /*PT_LOAD*/) continue;
+        uint64_t p_offset = be64(ph + 8);
+        uint64_t p_vaddr  = be64(ph + 16);
+        uint64_t p_filesz = be64(ph + 32);
+        uint64_t p_memsz  = be64(ph + 40);
+        if (p_memsz == 0) continue;
+        /* Bounds-check both ends before touching host memory: the source range
+         * must lie inside the ELF file, and the destination range inside the
+         * guest VM (ppu_vm_size==0 = unchecked, matching the vm accessors).
+         * Skip malformed/oversized segments rather than overflowing the host. */
+        if (p_offset > fsz || p_filesz > fsz || p_offset + p_filesz > fsz) {
+            fprintf(stderr, "[ppu] segment %u file range 0x%llX+0x%llX exceeds ELF (0x%llX), skipped\\n",
+                    i, (unsigned long long)p_offset, (unsigned long long)p_filesz, (unsigned long long)fsz);
+            continue;
+        }
+        if (ppu_vm_size && (p_vaddr > ppu_vm_size || p_memsz > ppu_vm_size ||
+                            p_vaddr + p_memsz > ppu_vm_size)) {
+            fprintf(stderr, "[ppu] segment %u vaddr 0x%llX+0x%llX exceeds VM (0x%X), skipped\\n",
+                    i, (unsigned long long)p_vaddr, (unsigned long long)p_memsz, ppu_vm_size);
+            continue;
+        }
+        memcpy(vm_base + (uint32_t)p_vaddr, file + p_offset, (size_t)p_filesz);
+        if (p_memsz > p_filesz)
+            memset(vm_base + (uint32_t)p_vaddr + (uint32_t)p_filesz, 0, (size_t)(p_memsz - p_filesz));
+        loaded++;
+    }
+    free(file);
+    fprintf(stderr, "[ppu] loaded %d PT_LOAD segments, entry OPD 0x%08X\\n", loaded, entry);""",
+        r"""    if (!path || !*path || !vm_base) return 0;
+    FILE* f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "[ppu] cannot open %s\\n", path); return 0; }
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return 0; }
+    long sz = ftell(f);
+    if (sz < 64 || (uint64_t)sz > 512ULL * 1024ULL * 1024ULL ||
+        fseek(f, 0, SEEK_SET) != 0) {
+        fprintf(stderr, "[ppu] invalid EBOOT file size\\n");
+        fclose(f);
+        return 0;
+    }
+    uint8_t* file = (uint8_t*)malloc((size_t)sz);
+    if (!file || fread(file, 1, (size_t)sz, f) != (size_t)sz) {
+        fclose(f);
+        free(file);
+        return 0;
+    }
+    fclose(f);
+
+    soulbrandt_guest_elf_info image = {};
+    const int32_t load_result = soulbrandt_guest_load_elf(file, (uint64_t)sz, &image);
+    free(file);
+    if (load_result != 0) {
+        fprintf(stderr, "[ppu] validated ELF loader rejected image (%d)\\n", load_result);
+        return 0;
+    }
+
+    g_tls_vaddr = image.tls_vaddr;
+    g_tls_filesz = image.tls_filesz;
+    g_tls_memsz = image.tls_memsz;
+    const uint32_t entry = image.entry_opd;
+    fprintf(stderr, "[ppu] validated and loaded %u PT_LOAD segments, entry OPD 0x%08X\\n",
+            image.load_segment_count, entry);""",
+    )
+
     replace_once(
         root, "libs/video/rsx_metal_backend.m",
         "static NSWindow*           s_window;\n",
