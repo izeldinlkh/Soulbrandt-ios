@@ -98,6 +98,8 @@ jobs:
             -I"$PS3/runtime" -I"$PS3/runtime/platform" -I"$PS3/runtime/spu" \
             -I"$PS3/third_party/mbedtls/include" \
             "$PS3/runtime/platform/win32_compat.c"
+      - name: Check PPU boot host iOS compatibility
+        run: bash ios/scripts/check-ppu-host-ios-compat.sh "$RUNNER_TEMP/ps3recomp"
       - name: Install XcodeGen and CMake tools
         run: brew install xcodegen cmake ninja
       - name: Build patched ps3recomp runtime for iOS
