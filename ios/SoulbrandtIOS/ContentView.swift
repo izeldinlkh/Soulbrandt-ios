@@ -294,6 +294,8 @@ struct ContentView: View {
 
             isImporting = true
             importError = nil
+            canBootGame = false
+            ppuBootStatus = "Game execution not started"
 
             Task {
                 defer {
