@@ -203,6 +203,16 @@ static void pad_shutdown_backend(void) {}
     )
     replace_once(
         root, "libs/input/cellPad.c",
+        "    pad_init_backend();\\n",
+        "#if !PAD_BACKEND_IOS_NATIVE\\n    pad_init_backend();\\n#endif\\n",
+    )
+    replace_once(
+        root, "libs/input/cellPad.c",
+        "    pad_shutdown_backend();\\n",
+        "#if !PAD_BACKEND_IOS_NATIVE\\n    pad_shutdown_backend();\\n#endif\\n",
+    )
+    replace_once(
+        root, "libs/input/cellPad.c",
         """#if PAD_BACKEND_XINPUT
     pad_poll_xinput();
     pad_poll_hid();
