@@ -13,9 +13,17 @@ This note records what is genuinely connected and what still blocks a game boot.
 - The upstream PPU host scaffold (`ppu_loader.cpp`, `ppu_hle.cpp`,
   `ppu_fs.cpp`, `ppu_sysprx.cpp`) and generated HLE NID table, compiled as an
   iOS ARM64 archive and linked into the app alongside the generic runtime.
-- The app's EBOOT action calls upstream `ppu_load_elf`, then
-  `ppu_recomp_register`, `ppu_hle_init`, `ppu_sysprx_register`,
+- The app's EBOOT action calls upstream `ppu_load_elf`; the iOS patch routes its
+  segment mapping through the bounds-checked `soulbrandt_guest_load_elf` and
+  passes the validated entry OPD and PT_TLS metadata back to the upstream loader.
+  It then calls `ppu_recomp_register`, `ppu_hle_init`, `ppu_sysprx_register`,
   `ppu_fs_register` and `lv2_init_syscalls`.
+- The PPU host installs `g_ps3_guest_caller`, dispatching GCM vblank/flip and
+  other HLE callbacks through `ppu_guest_call`. Runtime shutdown clears the
+  cached EBOOT entry and callback before unmapping guest memory; process-wide
+  registration tables survive restart without duplicate registration. Dedicated
+  Linux lifecycle tests cover image reload, registration idempotence and callback
+  argument forwarding.
 - The RSX frame pump starts/stops with the runtime. It drives 59.94 Hz GCM
   ticks, drains the FIFO every 4 ms, dispatches pending vblank/flip callbacks
   and presents only at a completed flip boundary. Scheduler and lifecycle
