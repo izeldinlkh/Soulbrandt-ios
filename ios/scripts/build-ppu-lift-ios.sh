@@ -137,11 +137,11 @@ fi
 test -s "$OUT/libSoulbrandtGameLift.a"
 
 if [[ -f "$RECOMP_DIR/ppu_recomp.h" ]]; then
-  if ! /usr/bin/nm -g "$OUT/libSoulbrandtGameLift.a" | grep -Fq ' _function_table'; then
+  if ! /usr/bin/nm -g "$OUT/libSoulbrandtGameLift.a" | awk '$NF == "_function_table" { found=1 } END { exit !found }'; then
     echo "lift archive does not export function_table" >&2
     exit 1
   fi
-  if ! /usr/bin/nm -g "$OUT/libSoulbrandtGameLift.a" | grep -Fq ' _function_table_count'; then
+  if ! /usr/bin/nm -g "$OUT/libSoulbrandtGameLift.a" | awk '$NF == "_function_table_count" { found=1 } END { exit !found }'; then
     echo "lift archive does not export function_table_count" >&2
     exit 1
   fi
