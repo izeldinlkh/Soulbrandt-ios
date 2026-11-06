@@ -72,19 +72,6 @@ jobs:
             "$PS3/libs/video/rsx_shader_msl.cpp"
       - name: Install XcodeGen
         run: brew install xcodegen
-      - name: Compile pinned PS3 Metal backend for iOS
-        run: |
-          PS3RECOMP="$PWD/ios/build/ps3recomp"
-          mkdir -p ios/build
-          git clone --filter=blob:none https://github.com/JonathanDC64/ps3recomp.git "$PS3RECOMP"
-          git -C "$PS3RECOMP" checkout b7adbb054eb087c8e9f0399d64001af89b1ae93d
-          python3 ios/scripts/patch-ps3recomp-ios-metal.py "$PS3RECOMP"
-          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-          xcrun --sdk iphoneos clang -target arm64-apple-ios16.0 -fobjc-arc -fmodules \
-            -isysroot "$SDK" \
-            -I "$PS3RECOMP/include" -I "$PS3RECOMP/libs/video" \
-            -c "$PS3RECOMP/libs/video/rsx_metal_backend.m" \
-            -o ios/build/rsx_metal_backend.o
       - name: Run ISO reader smoke test
         run: bash ios/scripts/run-iso-smoke-test.sh
       - name: Generate Xcode project
