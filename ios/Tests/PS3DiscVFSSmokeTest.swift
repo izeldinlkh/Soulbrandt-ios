@@ -58,6 +58,20 @@ private enum PS3DiscVFSSmokeTest {
         precondition(soulbrandt_disc_vfs_close(handle) == 0)
         precondition(soulbrandt_disc_vfs_close(handle) == -1)
 
+        // /app_home is the executable directory, not the disc root.
+        let appHomeOpened = "/app_home/EBOOT.ELF".withCString {
+            soulbrandt_disc_vfs_open($0, &handle, &size)
+        }
+        precondition(appHomeOpened == 0 && size == 4 && handle != 0)
+        precondition(soulbrandt_disc_vfs_close(handle) == 0)
+
+        var appHomeDirectory: UInt8 = 0
+        var appHomeSize: UInt64 = 99
+        let appHomeStat = "/app_home".withCString {
+            soulbrandt_disc_vfs_stat($0, &appHomeSize, &appHomeDirectory)
+        }
+        precondition(appHomeStat == 0 && appHomeDirectory == 1 && appHomeSize == 0)
+
         var statSize: UInt64 = 0
         var isDirectory: UInt8 = 0
         let statResult = "/dev_bdvd/PS3_GAME".withCString {
