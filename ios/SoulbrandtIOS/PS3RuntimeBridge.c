@@ -98,6 +98,9 @@ void soulbrandt_runtime_poll_pad(void)
 
 void soulbrandt_runtime_shutdown(void)
 {
+    /* ppu_run has no cooperative stop API. Never unmap vm_base or tear down
+     * RSX/HLE state while the guest entry thread is still executing. */
+    if (soulbrandt_ppu_host_is_running()) return;
 #if defined(SOULBRANDT_LINKED_RENDER_RUNTIME)
     if (s_runtime_pump_ready) {
         soulbrandt_rsx_frame_pump_stop();
