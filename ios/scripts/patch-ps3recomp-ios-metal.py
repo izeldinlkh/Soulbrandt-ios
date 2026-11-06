@@ -16,7 +16,7 @@ def replace_once(root: Path, relative: str, old: str, new: str) -> None:
         return
     count = source.count(old)
     if count != 1:
-        raise SystemExit(f"{relative}: expected one patch anchor, found {count}")
+        raise SystemExit(f"{relative}: expected one patch anchor, found {count}: {old[:100]!r}")
     path.write_text(source.replace(old, new, 1))
 
 
@@ -203,13 +203,13 @@ static void pad_shutdown_backend(void) {}
     )
     replace_once(
         root, "libs/input/cellPad.c",
-        "    pad_init_backend();\\n",
-        "#if !PAD_BACKEND_IOS_NATIVE\\n    pad_init_backend();\\n#endif\\n",
+        "    pad_init_backend();\n",
+        "#if !PAD_BACKEND_IOS_NATIVE\n    pad_init_backend();\n#endif\n",
     )
     replace_once(
         root, "libs/input/cellPad.c",
-        "    pad_shutdown_backend();\\n",
-        "#if !PAD_BACKEND_IOS_NATIVE\\n    pad_shutdown_backend();\\n#endif\\n",
+        "    pad_shutdown_backend();\n",
+        "#if !PAD_BACKEND_IOS_NATIVE\n    pad_shutdown_backend();\n#endif\n",
     )
     replace_once(
         root, "libs/input/cellPad.c",
