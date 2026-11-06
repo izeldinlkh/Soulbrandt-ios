@@ -149,12 +149,27 @@ struct ContentView: View {
         )[0]
         let directory = support.appendingPathComponent("GameImages", isDirectory: true)
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        var directoryURL = directory
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try? directoryURL.setResourceValues(resourceValues)
 
         let destination = directory.appendingPathComponent(source.lastPathComponent)
         let temporary = directory.appendingPathComponent(UUID().uuidString + ".partial")
         defer { try? fileManager.removeItem(at: temporary) }
 
-        try fileManager.copyItem(at: source, to: temporary)
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinationError: NSError?
+        var copyError: Error?
+        coordinator.coordinate(readingItemAt: source, options: [], error: &coordinationError) { readableURL in
+            do {
+                try fileManager.copyItem(at: readableURL, to: temporary)
+            } catch {
+                copyError = error
+            }
+        }
+        if let coordinationError { throw coordinationError }
+        if let copyError { throw copyError }
 
         var summary = "Imported. Filesystem not recognized by the current ISO-9660/Joliet reader; UDF support is still needed."
         do {
