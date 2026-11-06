@@ -83,9 +83,9 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
         reportInitialStatus()
     }
 
-    private func reportInitialStatus() {
+    private func publishDiagnostics(_ message: String) {\n        DispatchQueue.main.async { [diagnosticsChanged] in\n            diagnosticsChanged(message)\n        }\n    }\n\n    private func reportInitialStatus() {
         guard let device else {
-            diagnosticsChanged("Metal GPU unavailable")
+            publishDiagnostics("Metal GPU unavailable")
             return
         }
         let api = metal4Available ? "Metal 4 supported; legacy submission path" : "Metal 3-compatible path"
@@ -112,7 +112,7 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
             let library = try device.makeLibrary(source: source, options: nil)
             guard let vertex = library.makeFunction(name: "soulbrandt_vertex"),
                   let fragment = library.makeFunction(name: "soulbrandt_fragment") else {
-                diagnosticsChanged("Metal shader functions missing")
+                publishDiagnostics("Metal shader functions missing")
                 return
             }
             let descriptor = MTLRenderPipelineDescriptor()
@@ -137,7 +137,7 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
               let encoder = command.makeRenderCommandEncoder(descriptor: pass) else {
             if !reportedInitializationFailure {
                 reportedInitializationFailure = true
-                diagnosticsChanged("Renderer could not acquire a drawable or command buffer")
+                publishDiagnostics("Renderer could not acquire a drawable or command buffer")
             }
             return
         }
@@ -157,7 +157,7 @@ private final class MetalTriangleRenderer: NSObject, MTKViewDelegate {
         guard elapsed >= 1 else { return }
         let fps = Double(framesSinceDiagnostics) / elapsed
         let api = metal4Available ? "M4 available / M3 renderer" : "M3 renderer"
-        diagnosticsChanged(String(format: "%@ • %.1f FPS", api, fps))
+        publishDiagnostics(String(format: "%@ • %.1f FPS", api, fps))
         framesSinceDiagnostics = 0
         lastDiagnosticsTime = now
     }
