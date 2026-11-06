@@ -48,7 +48,7 @@ struct ContentView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(isImporting)
 
-                        Text("Import stores the image in this app’s private storage. The current build can inspect supported ISO-9660/Joliet images, but cannot boot the game.")
+                        Text("Import stores the image in this app’s private storage. The current build can inspect ISO-9660/Joliet and UDF images, but cannot boot the game.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }

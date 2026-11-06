@@ -44,3 +44,7 @@ A signed, installable IPA additionally requires Apple signing assets (a developm
 5. Implement an iOS-compatible RSX backend, then profile and optimize on the target device.
 
 The existing desktop CMake target is not an iOS target. Its SDL2, Vulkan/vkd3d, and Win32 assumptions cannot simply be linked into this app.
+
+## Third-party notices
+
+The UDF reader is [libudfread](https://github.com/firecore/libudfread), pinned as a source submodule and licensed under LGPL-2.1-or-later. Its `COPYING` license text is included in the app bundle. The app links the library statically; the complete application source, dependency source, and build workflow are available in this repository so the app can be rebuilt with a modified library.

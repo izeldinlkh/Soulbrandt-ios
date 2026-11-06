@@ -19,6 +19,8 @@ targets:
       - path: ThirdParty/libudfread/src/udfread.c
       - path: ThirdParty/libudfread/src/ecma167.c
       - path: ThirdParty/libudfread/src/default_blockinput.c
+    resources:
+      - path: ThirdParty/libudfread/COPYING
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.izeldinlkh.soulbrandt-ios
