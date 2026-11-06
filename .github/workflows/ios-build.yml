@@ -104,6 +104,8 @@ jobs:
             "$PS3/runtime/platform/win32_compat.c"
       - name: Check PPU boot host iOS compatibility
         run: bash ios/scripts/check-ppu-host-ios-compat.sh "$RUNNER_TEMP/ps3recomp"
+      - name: Build PPU host scaffold archive for iOS
+        run: bash ios/scripts/build-ppu-host-ios.sh "$RUNNER_TEMP/ps3recomp" ios/build/ppu-host-ios
       - name: Install XcodeGen and CMake tools
         run: brew install xcodegen cmake ninja
       - name: Build patched ps3recomp runtime for iOS
@@ -164,6 +166,12 @@ jobs:
         with:
           name: Soulbrandt-PS3Recomp-iOS-runtime
           path: ios/build/ps3recomp-runtime/libps3recomp_runtime.a
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Soulbrandt-PPU-host-ios
+          path: ios/build/ppu-host-ios/
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@v4
