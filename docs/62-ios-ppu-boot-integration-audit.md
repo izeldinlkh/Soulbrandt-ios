@@ -4,7 +4,7 @@ This note records what the first ARM64 PPU-host archive actually proves and the 
 
 ## Verified in CI
 
-Workflow run [42299051612](https://github.com/izeldinlkh/Soulbrandt-ios/actions/runs/42299051612) completed successfully on 2026-11-06:
+Workflow run [42300874615](https://github.com/izeldinlkh/Soulbrandt-ios/actions/runs/42300874615) completed successfully on 2026-11-06:
 - The pinned upstream ppu_loader.cpp, ppu_hle.cpp, ppu_fs.cpp, and ppu_sysprx.cpp compile for arm64-apple-ios16.0.
 - The generated all-module ppu_hle_nids.cpp compiles for the same target.
 - Those objects archive into libSoulbrandtPPUHost.a.
@@ -12,6 +12,7 @@ Workflow run [42299051612](https://github.com/izeldinlkh/Soulbrandt-ios/actions/
 - The PPU host archive is linked into the iOS app target, with a no-game fallback function table so the shell can link before title-derived code exists. The fallback registers zero lifted functions; no game code runs yet.
 - The upstream PPU ELF loader now delegates PT_LOAD/PT_TLS parsing and memory writes to the app's validated guest ELF loader. It rejects malformed program-header tables and segment ranges instead of skipping bad segments and returning a misleading entry point.
 - The PPU host bridge installs and resets the upstream guest-callback dispatcher around image lifetime, and its lifecycle is covered by a Linux smoke test.
+- The optional ARM64 game-lift archive builder is tested with synthetic PPU and SPU fixtures, verifies the generated function-table symbols, excludes the duplicate HLE NID table, and is force-loaded by the app target. CI currently builds its no-game marker because private title sources are not present.
 - Persistent /dev_hdd0 and /dev_hdd1 roots are configured in the app's Application Support directory before HLE initialization. The disc image remains read-only.
 
 ## What the host archive depends on
@@ -39,16 +40,16 @@ The iOS host now has an app-owned RSX frame-pump thread that drives GCM vblank/f
 
 Do not adopt the upstream dynamic split-module loader as the first iOS route. runtime/ppu/game_module.c explicitly supports Windows x64 and x86-64 ELF only; its freestanding libc implementation is likewise x86-specific. The iOS route should statically compile the generated PPU chunks and title registration table into the app target, alongside the PPU host scaffold and generic runtime.
 
-The existing PS3BootImageStore provides the extracted EBOOT path to the PPU ELF loader. Runtime cellFs access uses the imported-disc VFS callbacks, with /dev_bdvd mapped to disc root and /app_home mapped to /PS3_GAME/USRDIR. Persistent /dev_hdd0 and /dev_hdd1 roots now map to Application Support/SoulbrandtStorage; the ISO itself stays read-only. Remaining filesystem gaps include unlink/rmdir and validation against the exact target disc.
+The existing PS3BootImageStore provides the extracted EBOOT path to the PPU ELF loader. Runtime cellFs access uses the imported-disc VFS callbacks, with /dev_bdvd mapped to disc root and /app_home mapped to /PS3_GAME/USRDIR. Persistent /dev_hdd0 and /dev_hdd1 roots now map to Application Support/SoulbrandtStorage; the ISO itself stays read-only. HDD unlink/rmdir now operate on the writable overlays and reject disc paths. Remaining filesystem work is broader syscall/error-semantic coverage and validation against the exact target disc.
 
 ## Remaining gates
 
 - Confirm the supported input set: Demon's Souls BLUS30443 v1.00 and its required decrypted boot/firmware assets.
-- Generate and compile the title SPU image/job workloads; connect SPURS registration and dispatch.
+- Supply the private BLUS30443 v1.00 PPU/SPU lift sources and validate their real function/workload registration; CI currently tests only synthetic fixtures and the no-game marker.
 - Add an iOS boot coordinator with a safe guest-thread start/stop lifecycle.
 - Generate the title-specific PPU lift and function_table, then statically compile and link those sources into the app; the current fallback has zero functions.
 - Route real guest RSX commands through the existing Metal backend and prove the first game frame.
-- Complete PS3 HDD filesystem semantics (including unlink/rmdir) and validate saves/caches against the target image.
+- Validate persistent HDD saves/cache writes, directory creation/deletion and error semantics against the target image.
 - Profile memory, thermal load and frame pacing on the target iPhone before making any FPS claim.
 
 A successful archive or IPA build is a host-build milestone, not evidence of a bootable game.
