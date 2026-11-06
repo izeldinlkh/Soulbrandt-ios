@@ -226,6 +226,9 @@ struct ContentView: View {
     private func initializeRSXBackend() {
         let result = soulbrandt_rsx_backend_initialize()
         if result == 0 {
+            // The native cellAudio backend writes into the bridge ring; this
+            // AVAudioEngine source node must be running to consume it on iOS.
+            GameAudioSession.configure()
             rsxBackendReady = true
             rsxBackendStatus = "4 GiB guest VM reserved • RSX Metal, controller, frame pump and PPU/HLE host linked • title code not yet built"
         } else {
@@ -248,6 +251,7 @@ struct ContentView: View {
             return
         }
         soulbrandt_rsx_backend_shutdown()
+        GameAudioSession.stop()
         rsxBackendReady = false
         rsxBackendStatus = "RSX backend stopped"
     }
