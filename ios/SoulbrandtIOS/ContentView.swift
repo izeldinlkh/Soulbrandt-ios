@@ -81,7 +81,7 @@ struct ContentView: View {
                         Text(controller.lastInput)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                        Text("PS3 button mask: 0x\\(String(PS3PadMapper.make(snapshot: controller.input).buttons, radix: 16, uppercase: true).leftPadded(to: 4))")
+                        Text("PS3 button mask: 0x\\(String(format: "%04X", PS3PadMapper.make(snapshot: controller.input).buttons))")
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                         Text("L2/R2: \\(PS3PadMapper.make(snapshot: controller.input).analogL2)/\\(PS3PadMapper.make(snapshot: controller.input).analogR2) • Cross/Circle/Square/Triangle: mapped")
