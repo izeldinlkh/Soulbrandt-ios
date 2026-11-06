@@ -91,7 +91,7 @@ struct ContentView: View {
                         Text(rsxBackendStatus)
                             .font(.footnote.monospaced())
                             .foregroundStyle(rsxBackendReady ? Color.green : Color.secondary)
-                        Text("This initializes the native RSX Metal backend and attaches it to the drawable surface. It does not boot the game; guest PPU/SPU code and game data are still required.")
+                        Text("This initializes the RSX Metal surface and native PS3 controller HLE. It does not boot the game; generated PPU/SPU code and decrypted game data are still required.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -149,7 +149,7 @@ struct ContentView: View {
         let result = soulbrandt_rsx_backend_initialize()
         if result == 0 {
             rsxBackendReady = true
-            rsxBackendStatus = "RSX Metal backend initialized • waiting for guest commands"
+            rsxBackendStatus = "RSX Metal + native cellPad initialized • waiting for guest commands"
         } else {
             soulbrandt_rsx_backend_shutdown()
             rsxBackendReady = false
