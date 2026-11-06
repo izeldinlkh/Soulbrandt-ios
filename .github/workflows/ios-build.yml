@@ -34,6 +34,8 @@ jobs:
         run: bash ios/scripts/run-boot-image-store-smoke-test.sh
       - name: Run virtual disc VFS smoke test
         run: bash ios/scripts/run-disc-vfs-smoke-test.sh
+      - name: Run RSX frame pump smoke test
+        run: bash ios/scripts/run-rsx-frame-pump-smoke-test.sh
       - name: Run UDF reader smoke test
         run: bash ios/scripts/run-udf-smoke-test.sh
       - name: Run PS3 controller mapping smoke test
