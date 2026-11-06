@@ -40,6 +40,8 @@ jobs:
         run: bash ios/scripts/run-audio-bridge-smoke-test.sh
       - name: Run PS3 runtime bridge lifecycle smoke test
         run: bash ios/scripts/run-runtime-bridge-smoke-test.sh
+      - name: Run PS3 guest memory reservation smoke test
+        run: bash ios/scripts/run-guest-memory-smoke-test.sh
 
   build-ios-shell:
     runs-on: macos-26-intel
