@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PS3_ROOT="${1:?usage: check-ppu-host-ios-compat.sh /path/to/ps3recomp}"
+PORT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 COMMON=(
   -fsyntax-only
@@ -10,6 +11,7 @@ COMMON=(
   -target arm64-apple-ios16.0
   -isysroot "$SDK"
   -D_GNU_SOURCE=1
+  -I"$PORT_ROOT/ios/SoulbrandtIOS"
   -I"$PS3_ROOT/include"
   -I"$PS3_ROOT/runtime"
   -I"$PS3_ROOT/runtime/ppu"
