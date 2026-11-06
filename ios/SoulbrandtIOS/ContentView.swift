@@ -90,7 +90,7 @@ struct ContentView: View {
                         }
                         Text(rsxBackendStatus)
                             .font(.footnote.monospaced())
-                            .foregroundStyle(rsxBackendReady ? .green : .secondary)
+                            .foregroundStyle(rsxBackendReady ? Color.green : Color.secondary)
                         Text("This initializes the native RSX Metal backend and attaches it to the drawable surface. It does not boot the game; guest PPU/SPU code and game data are still required.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
