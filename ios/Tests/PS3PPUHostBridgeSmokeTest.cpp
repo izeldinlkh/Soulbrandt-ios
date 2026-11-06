@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <cstdlib>
 
 typedef void (*ps3_guest_caller_fn)(uint32_t opd_addr,
                                     uint64_t arg0, uint64_t arg1,
@@ -60,6 +61,13 @@ extern "C" uint32_t ps3_hle_count(void) { return 84; }
 
 int main()
 {
+    unsetenv("PS3_HDD0_ROOT");
+    unsetenv("PS3_HDD1_ROOT");
+    assert(soulbrandt_ppu_host_set_storage_roots("/tmp/soulbrandt-hdd0", "/tmp/soulbrandt-hdd1") == 0);
+    assert(std::strcmp(std::getenv("PS3_HDD0_ROOT"), "/tmp/soulbrandt-hdd0") == 0);
+    assert(std::strcmp(std::getenv("PS3_HDD1_ROOT"), "/tmp/soulbrandt-hdd1") == 0);
+    assert(soulbrandt_ppu_host_set_storage_roots(nullptr, "/tmp/soulbrandt-hdd1") == -1);
+
     assert(soulbrandt_ppu_host_load_elf("/disc/EBOOT.ELF") == 0);
     assert(g_load_calls == 0);
     assert(soulbrandt_ppu_host_is_ready() == 0);
@@ -75,6 +83,8 @@ int main()
     assert(soulbrandt_ppu_host_function_count() == 42);
     assert(soulbrandt_ppu_host_hle_count() == 84);
     assert(g_ps3_guest_caller != nullptr);
+    assert(soulbrandt_ppu_host_set_storage_roots("/tmp/soulbrandt-hdd0", "/tmp/soulbrandt-hdd1") == 0);
+    assert(soulbrandt_ppu_host_set_storage_roots("/tmp/other-hdd0", "/tmp/soulbrandt-hdd1") == -2);
     g_ps3_guest_caller(0xABCDEF00u, 1, 2, 3, 4, 5, 6, 7, 8);
     assert(g_guest_call_count == 1 && g_guest_opd == 0xABCDEF00u);
     for (unsigned i = 0; i < 8; ++i) assert(g_guest_args[i] == i + 1);
