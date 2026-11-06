@@ -10,14 +10,14 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 - Import is retained even when the image uses a filesystem the prototype cannot parse.
 - GameController framework discovery, Extended Gamepad monitoring, and a native CELL_PAD-compatible state bridge.
 - Read-only UDF-first, then ISO-9660/Joliet directory and file access, with bounded random-access reads. UDF is provided by the LGPL-2.1 libudfread submodule.
-- A native MetalKit diagnostic render loop with live FPS/GPU diagnostics. It uses an MTL4 command queue with three in-flight allocator slots on supported iOS 26+ devices, and falls back to the compatible Metal command-queue path.
+- A native MetalKit drawable surface backed by CAMetalLayer. The view is paused and hands drawable ownership to the future RSX backend; it does not run a competing MTKView render loop. An MTL4 command-submission prototype exists but is not yet used by the RSX backend.
 - A lock-free stereo float ring between the PS3 mixer and an AVAudioSourceNode; the AVAudioEngine is deliberately dormant until the game runtime starts.
 - CI smoke tests for ISO/UDF, controller mapping, the controller C bridge and the audio C bridge. The pinned RSX Metal backend, iOS cellPad adapter and iOS cellAudio adapter are also syntax-checked against the iOS SDK.
 
 ## Known limitations
 
 - No PS3 boot or integration with ps3recomp's cellFs VFS.
-- The MetalKit triangle is only a GPU bring-up test. Its Metal 4 submission path is not yet the game's RSX renderer; the patched PS3 RSX backend still needs to be linked and connected to the app's CAMetalLayer.
+- The app currently creates and publishes a CAMetalLayer but does not render a triangle or a game frame. The patched PS3 RSX backend still needs to be linked and connected to that layer. The actual RSX backend continues to use its existing Metal command submission; the MTL4 prototype is not wired into it.
 - ISO-9660 reader does not support multi-extent files, interleaved files, or Rock Ridge extensions. UDF images are handled by libudfread; validation against the target BLUS30443 disc image is still pending.
 - The importer inspects the EBOOT header (ELF, likely SELF, or unknown), but an ELF header alone does not prove the full executable or the other required game/firmware files are decrypted and suitable for recompilation.
 - The desktop setup currently expects the supported US BLUS30443 v1.00 dump plus 28 decrypted game/firmware files; importing a single ISO does not satisfy that build pipeline.
@@ -45,7 +45,7 @@ A signed, installable IPA additionally requires Apple signing assets (a developm
 2. Implement UDF and the exact disc/VFS behavior needed by the supported Demon's Souls dump, then extract/validate the full set of inputs required by the existing recompilation pipeline.
 3. Build the pinned ps3recomp runtime for iOS. The patch now provides native GameController and AVAudioEngine backends and removes the runtime's SDL2 requirement on iOS.
 4. Link the runtime and connect its patched Objective-C Metal RSX backend to the app's CAMetalLayer. The diagnostic view already exposes a layer handoff; startup must call the backend's setter before RSX initialization.
-5. Connect the generated PPU/SPU game code and cellFs VFS, then validate guest shader translation, render targets, audio and saves. The diagnostic surface uses MTL4; migrate the actual RSX submission path after the legacy Metal path is running and can be profiled.
+5. Connect the generated PPU/SPU game code and cellFs VFS, then validate guest shader translation, render targets, audio and saves. Once the legacy RSX path presents correctly, port its command submission to MTL4 where it improves measured CPU/GPU performance.
 6. Profile CPU/GPU frame time, memory and thermal behaviour on the A15 before targeting 30/60 FPS.
 
 The existing desktop CMake target is not an iOS target. Its SDL2, Vulkan/vkd3d, and Win32 assumptions cannot simply be linked into this app.
@@ -56,7 +56,7 @@ The UDF reader is [libudfread](https://github.com/firecore/libudfread), pinned a
 
 ### Metal surface handoff
 
-The diagnostic `MTKView` publishes its owned `CAMetalLayer` through
+The paused `MTKView` publishes its owned `CAMetalLayer` through
 `soulbrandt_metal_layer_get()`. The pointer is non-owning; the view retains the
 layer and clears the bridge when dismantled. Once the runtime is linked, its
 iOS startup must pass this pointer to the patched
