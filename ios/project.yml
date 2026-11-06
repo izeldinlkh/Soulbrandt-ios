@@ -32,13 +32,6 @@ targets:
         HEADER_SEARCH_PATHS:
           - $(inherited)
           - $(SRCROOT)/ThirdParty/libudfread/src
-          - $(SRCROOT)/build/ps3recomp-runtime/include
-        LIBRARY_SEARCH_PATHS:
-          - $(inherited)
-          - $(SRCROOT)/build/ps3recomp-runtime
-        OTHER_LDFLAGS:
-          - $(inherited)
-          - -lps3recomp_runtime
         LIBRARY_SEARCH_PATHS:
           - $(inherited)
           - $(SRCROOT)/build/ps3recomp-runtime
@@ -46,9 +39,6 @@ targets:
           - $(inherited)
           - -lps3recomp_runtime
           - -lc++
-          - "-framework Metal"
-          - "-framework QuartzCore"
-          - "-framework Foundation"
         GCC_PREPROCESSOR_DEFINITIONS:
           - $(inherited)
           - HAVE_UNISTD_H=1
