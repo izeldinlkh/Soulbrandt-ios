@@ -7,11 +7,12 @@ This directory is the first native iOS shell, not a playable port.
 - SwiftUI application entry point and a minimal home screen.
 - Files picker that accepts ISO files, requests security-scoped access, and copies the image into the app's Application Support directory.
 - GameController framework discovery and basic Extended Gamepad input detection.
+- A read-only ISO-9660/Joliet directory and bounded file-range reader prototype.
 - XcodeGen project definition.
 
 ## What does not exist
 
-- No PS3 ISO filesystem/VFS integration. The importer currently copies the image only.
+- The ISO reader is not yet integrated into ps3recomp's cellFs VFS. It handles ISO-9660 primary/Joliet directory records only; UDF, multi-extent and interleaved files are not supported.
 - No PS3 boot, PPU/SPU runtime, RSX renderer, audio, save-state, or game loop.
 - Controller events are detected for bring-up only; they are not mapped to Soulbrandt's input system.
 - No IPA is produced by this source-only commit.
