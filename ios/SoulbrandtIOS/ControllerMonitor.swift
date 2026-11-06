@@ -64,7 +64,7 @@ final class ControllerMonitor: ObservableObject {
             let snapshot = Self.snapshot(from: pad)
             let description = element.localizedName ?? "Gamepad"
             Task { @MainActor in
-                self?.input = snapshot
+                self?.publish(snapshot)
                 self?.lastInput = "Input detected: \(description)"
             }
         }
