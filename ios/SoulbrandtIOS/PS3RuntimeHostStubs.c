@@ -16,8 +16,8 @@
 #include <string.h>
 #include "ps3emu/ppu_lift.h"   /* ppu_context, PPU_THREAD_LOCAL */
 
-/* Allocated by the future iOS PPU boot host; NULL while only the shell is active. */
-uint8_t* vm_base = NULL;
+/* vm_base and ppu_vm_size are owned by PS3GuestMemory.c. */
+extern uint8_t* vm_base;
 
 /* ppu_loader.cpp - PPU reservation bookkeeping. The ppu_memory.h inlines call
  * these on every store so lwarx/stwcx reservations can be broken; with no PPU
@@ -42,7 +42,6 @@ void ps3_sjlj_thread_reset(void) {}
  * This host calloc's its own VM and passes bounds explicitly, so the bounds
  * checks keyed off this stay out of the way (see VM_READY in vm.h, which
  * takes vm_base != 0 as the other way to be ready). */
-uint32_t ppu_vm_size = 0;
 
 /* ppu_loader.cpp - out-of-line big-endian guest stores. */
 void vm_write8(uint64_t addr, uint8_t v)
