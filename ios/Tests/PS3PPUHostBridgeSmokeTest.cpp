@@ -83,8 +83,8 @@ int main()
     assert(soulbrandt_ppu_host_function_count() == 42);
     assert(soulbrandt_ppu_host_hle_count() == 84);
     assert(g_ps3_guest_caller != nullptr);
-    assert(soulbrandt_ppu_host_set_storage_roots("/tmp/soulbrandt-hdd0", "/tmp/soulbrandt-hdd1") == 0);
-    assert(soulbrandt_ppu_host_set_storage_roots("/tmp/other-hdd0", "/tmp/soulbrandt-hdd1") == -2);
+    assert(soulbrandt_ppu_host_set_storage_roots("/tmp/soulbrandt-test-hdd0", "/tmp/soulbrandt-test-hdd1") == 0);
+    assert(soulbrandt_ppu_host_set_storage_roots("/tmp/other-hdd0", "/tmp/other-hdd1") == -2);
     g_ps3_guest_caller(0xABCDEF00u, 1, 2, 3, 4, 5, 6, 7, 8);
     assert(g_guest_call_count == 1 && g_guest_opd == 0xABCDEF00u);
     for (unsigned i = 0; i < 8; ++i) assert(g_guest_args[i] == i + 1);
