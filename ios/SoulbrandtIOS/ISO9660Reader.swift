@@ -93,6 +93,12 @@ final class ISO9660Reader {
         return try readDirectory(directory)
     }
 
+    func resolveFileSize(path: String) throws -> UInt64 {
+        let entry = try resolve(path)
+        guard !entry.isDirectory else { throw ISOError.isDirectory(path) }
+        return entry.size
+    }
+
     /// Reads at most length bytes without loading the whole image into memory.
     func readFile(path: String, offset: UInt64 = 0, length: Int) throws -> Data {
         let entry = try resolve(path)
