@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-#include "../ppu/ppu_context.h"   /* ppu_context, PPU_THREAD_LOCAL */
+#include "ps3emu/ppu_lift.h"   /* ppu_context, PPU_THREAD_LOCAL */
 
 /* Allocated by the future iOS PPU boot host; NULL while only the shell is active. */
 uint8_t* vm_base = NULL;
