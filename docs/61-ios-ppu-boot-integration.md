@@ -12,8 +12,10 @@ mistaken for a game loader.
 - `soulbrandt_guest_load_elf` validates PPC64 big-endian program headers and maps
   `PT_LOAD` bytes/BSS into the aligned guest address space. It validates the entry point
   and `PT_TLS` ranges before modifying guest memory.
-- The iOS build compiles the generic ps3recomp runtime and syntax-checks the PPU host
-  scaffold against the iOS SDK.
+- The iOS build compiles the generic ps3recomp runtime, syntax-checks the PPU host
+  scaffold, and now separately compiles the PPU loader/HLE/filesystem/sysPrx sources plus
+  generated HLE NID table into an arm64 static archive. That archive is published by CI
+  but is not linked into the app yet.
 
 None of those steps executes a PPU instruction.
 
