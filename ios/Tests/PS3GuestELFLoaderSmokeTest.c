@@ -75,6 +75,21 @@ int main(void)
     file[5]=1; /* little-endian is not a PS3 ELF */
     if (soulbrandt_guest_load_elf(file,sizeof(file),&info) != -2) return 8;
 
+    /* Entry points must resolve into a mapped PT_LOAD range. */
+    make_elf(file,sizeof(file));
+    put64(file+24,0x61000000);
+    if (soulbrandt_guest_load_elf(file,sizeof(file),&info) != -9) return 9;
+
+    /* PT_TLS file bytes must be present in the ELF file. */
+    make_elf(file,sizeof(file));
+    put64(file+120+8,0xFFFFFFFFFFFFFFF0ULL);
+    if (soulbrandt_guest_load_elf(file,sizeof(file),&info) != -6) return 10;
+
+    /* TLS metadata must refer to memory represented by a PT_LOAD segment. */
+    make_elf(file,sizeof(file));
+    put64(file+120+16,0x61000000);
+    if (soulbrandt_guest_load_elf(file,sizeof(file),&info) != -10) return 11;
+
     soulbrandt_guest_memory_shutdown();
     puts("PS3 guest ELF loader smoke test passed");
     return 0;
