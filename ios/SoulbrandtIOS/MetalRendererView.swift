@@ -60,8 +60,7 @@ private struct MetalRenderSurface: UIViewRepresentable {
         layer.presentsWithTransaction = false
         soulbrandt_metal_layer_set(Unmanaged.passUnretained(layer).toOpaque())
 
-        let family = device.supportsFamily(.metal4) ? "Metal 4-capable" : "Metal 3-compatible"
-        statusChanged("\(device.name) • \(family) • RSX surface ready")
+        statusChanged("\(device.name) • Metal drawable surface ready for RSX")
         return view
     }
 
