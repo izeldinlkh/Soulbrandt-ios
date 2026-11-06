@@ -1,6 +1,6 @@
 import Combine
-import GameController
 import Foundation
+import GameController
 
 struct ControllerInputSnapshot: Equatable {
     var leftX: Float = 0
@@ -67,28 +67,39 @@ final class ControllerMonitor: ObservableObject {
             return
         }
 
-        pad.valueChangedHandler = { [weak self] _, element in
-            let snapshot = ControllerInputSnapshot(
-                leftX: pad.leftThumbstick.xAxis.value,
-                leftY: pad.leftThumbstick.yAxis.value,
-                rightX: pad.rightThumbstick.xAxis.value,
-                rightY: pad.rightThumbstick.yAxis.value,
-                leftTrigger: pad.leftTrigger.value,
-                rightTrigger: pad.rightTrigger.value,
-                buttonA: pad.buttonA.isPressed,
-                buttonB: pad.buttonB.isPressed,
-                buttonX: pad.buttonX.isPressed,
-                buttonY: pad.buttonY.isPressed,
-                leftShoulder: pad.leftShoulder.isPressed,
-                rightShoulder: pad.rightShoulder.isPressed,
-                dpadX: pad.dpad.xAxis.value,
-                dpadY: pad.dpad.yAxis.value
-            )
+        // Publish the current state immediately; do not wait for the next button event.
+        input = Self.snapshot(from: pad)
+        lastInput = "Controller ready"
+
+        // GCController retains its gamepad and the handler. Capture the pad weakly to
+        // avoid a pad -> handler -> pad retain cycle for the lifetime of the device.
+        pad.valueChangedHandler = { [weak self, weak pad] _, element in
+            guard let pad else { return }
+            let snapshot = Self.snapshot(from: pad)
             let description = element.localizedName ?? "Gamepad"
             Task { @MainActor in
                 self?.input = snapshot
                 self?.lastInput = "Input detected: \(description)"
             }
         }
+    }
+
+    private nonisolated static func snapshot(from pad: GCExtendedGamepad) -> ControllerInputSnapshot {
+        ControllerInputSnapshot(
+            leftX: pad.leftThumbstick.xAxis.value,
+            leftY: pad.leftThumbstick.yAxis.value,
+            rightX: pad.rightThumbstick.xAxis.value,
+            rightY: pad.rightThumbstick.yAxis.value,
+            leftTrigger: pad.leftTrigger.value,
+            rightTrigger: pad.rightTrigger.value,
+            buttonA: pad.buttonA.isPressed,
+            buttonB: pad.buttonB.isPressed,
+            buttonX: pad.buttonX.isPressed,
+            buttonY: pad.buttonY.isPressed,
+            leftShoulder: pad.leftShoulder.isPressed,
+            rightShoulder: pad.rightShoulder.isPressed,
+            dpadX: pad.dpad.xAxis.value,
+            dpadY: pad.dpad.yAxis.value
+        )
     }
 }
