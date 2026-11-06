@@ -1,5 +1,6 @@
 #include "PS3RuntimeBridge.h"
 #include "PS3PadBridge.h"
+#include "PS3GuestMemory.h"
 #include <stddef.h>
 
 static int s_runtime_pad_ready;
@@ -30,6 +31,9 @@ int32_t soulbrandt_runtime_prepare(void)
     /* Renderer/input runtime is not part of this target's link. */
     return -1001;
 #else
+    const int32_t vm_result = soulbrandt_guest_memory_init();
+    if (vm_result != 0) return -1100 + vm_result;
+
     rsx_metal_backend_set_layer(layer);
     s_runtime_layer_attached = 1;
 
@@ -39,6 +43,7 @@ int32_t soulbrandt_runtime_prepare(void)
             rsx_metal_backend_shutdown();
             rsx_metal_backend_set_layer(NULL);
             s_runtime_layer_attached = 0;
+            soulbrandt_guest_memory_shutdown();
             return result;
         }
         s_runtime_rsx_ready = 1;
@@ -51,6 +56,7 @@ int32_t soulbrandt_runtime_prepare(void)
             s_runtime_rsx_ready = 0;
             rsx_metal_backend_set_layer(NULL);
             s_runtime_layer_attached = 0;
+            soulbrandt_guest_memory_shutdown();
             return result;
         }
         s_runtime_pad_ready = 1;
@@ -81,6 +87,7 @@ void soulbrandt_runtime_shutdown(void)
         rsx_metal_backend_set_layer(NULL);
         s_runtime_layer_attached = 0;
     }
+    soulbrandt_guest_memory_shutdown();
 #else
     s_runtime_pad_ready = 0;
     s_runtime_rsx_ready = 0;
