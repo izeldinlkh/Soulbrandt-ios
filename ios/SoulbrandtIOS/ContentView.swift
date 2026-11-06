@@ -153,7 +153,13 @@ struct ContentView: View {
         } else {
             soulbrandt_rsx_backend_shutdown()
             rsxBackendReady = false
-            rsxBackendStatus = "RSX Metal initialization failed (\(result))"
+            if result == -1001 {
+                rsxBackendStatus = "Renderer and input adapters are prepared; des_boot host and generated PPU/SPU code are not linked yet"
+            } else if result == -1000 {
+                rsxBackendStatus = "Metal drawable layer is not available yet"
+            } else {
+                rsxBackendStatus = "RSX Metal initialization failed (\(result))"
+            }
         }
     }
 
