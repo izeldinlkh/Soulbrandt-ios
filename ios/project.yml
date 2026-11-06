@@ -1,0 +1,29 @@
+name: SoulbrandtIOS
+options:
+  bundleIdPrefix: com.izeldinlkh
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    CODE_SIGN_STYLE: Manual
+targets:
+  SoulbrandtIOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: SoulbrandtIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.izeldinlkh.soulbrandt-ios
+        PRODUCT_NAME: Soulbrandt
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Soulbrandt
+        INFOPLIST_KEY_GCSupportsControllerUserInteraction: YES
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+    scheme:
+      testTargets: []
