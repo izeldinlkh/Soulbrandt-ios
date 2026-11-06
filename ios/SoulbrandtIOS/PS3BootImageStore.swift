@@ -81,7 +81,7 @@ enum PS3BootImageStore {
         // leaves a half-written EBOOT or destroys the previously completed one.
         let renameResult = temporary.path.withCString { sourcePath in
             destination.path.withCString { destinationPath in
-                Darwin.rename(sourcePath, destinationPath)
+                rename(sourcePath, destinationPath)
             }
         }
         guard renameResult == 0 else {
