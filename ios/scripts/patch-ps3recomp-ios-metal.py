@@ -107,7 +107,9 @@ int  rsx_metal_backend_init(u32 width, u32 height, const char* title);""",
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         target_link_libraries(ps3recomp_runtime PUBLIC "-framework AppKit")
     else()
-        target_compile_definitions(ps3recomp_runtime PRIVATE PS3RECOMP_PAD_IOS_NATIVE=1)
+        target_compile_definitions(ps3recomp_runtime PRIVATE
+            PS3RECOMP_PAD_IOS_NATIVE=1
+            PS3RECOMP_AUDIO_IOS_NATIVE=1)
     endif()""",
     )
     replace_once(
@@ -260,13 +262,6 @@ static SDL_AudioDeviceID s_sdl_audio_dev = 0;""",
     find_package(Threads REQUIRED)""",
     )
     replace_once(
-        root, "CMakeLists.txt",
-        """        target_compile_definitions(ps3recomp_runtime PRIVATE PS3RECOMP_PAD_IOS_NATIVE=1)""",
-        """        target_compile_definitions(ps3recomp_runtime PRIVATE
-            PS3RECOMP_PAD_IOS_NATIVE=1
-            PS3RECOMP_AUDIO_IOS_NATIVE=1)""",
-    )
-    replace_once(
         root, "libs/input/cellPad.c",
         """#if defined(PS3RECOMP_PAD_USE_SDL2)
   #define PAD_BACKEND_SDL2  1
@@ -385,7 +380,7 @@ static void pad_shutdown_backend(void) {}
 #endif
 #endif""",
     )
-    print("ps3recomp iOS Metal layer and native cellPad patches applied (or were already present)")
+    print("ps3recomp iOS Metal, native cellPad and AVAudioEngine patches applied (or were already present)")
 
 
 if __name__ == "__main__":
