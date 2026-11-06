@@ -1,4 +1,5 @@
 #include "PS3RuntimeBridge.h"
+#include "PS3GuestMemory.h"
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -42,11 +43,13 @@ int main(void)
     /* A view must publish its layer before runtime preparation. */
     assert(soulbrandt_runtime_prepare() == -1000);
     assert(s_rsx_init_calls == 0 && s_pad_init_calls == 0);
+    assert(!soulbrandt_guest_memory_is_ready());
 
     s_layer = &s_layer_token;
     assert(soulbrandt_runtime_prepare() == 0);
     assert(soulbrandt_runtime_is_ready());
     assert(s_rsx_init_calls == 1 && s_pad_init_calls == 1);
+    assert(soulbrandt_guest_memory_is_ready());
 
     /* Repeated SwiftUI updates must not initialise the runtime twice. */
     assert(soulbrandt_runtime_prepare() == 0);
@@ -57,6 +60,7 @@ int main(void)
     soulbrandt_runtime_shutdown();
     assert(!soulbrandt_runtime_is_ready());
     assert(s_pad_end_calls == 1 && s_rsx_shutdown_calls == 1);
+    assert(!soulbrandt_guest_memory_is_ready());
     assert(s_layer == NULL);
 
     /* A failed RSX init is cleaned up and can be retried. */
@@ -65,6 +69,7 @@ int main(void)
     assert(soulbrandt_runtime_prepare() == -9);
     assert(!soulbrandt_runtime_is_ready());
     assert(s_rsx_shutdown_calls == 2 && s_layer == NULL);
+    assert(!soulbrandt_guest_memory_is_ready());
 
     /* A pad init failure also tears down the already-created RSX backend. */
     s_rsx_init_result = 0;
@@ -73,6 +78,7 @@ int main(void)
     assert(soulbrandt_runtime_prepare() == -7);
     assert(!soulbrandt_runtime_is_ready());
     assert(s_rsx_shutdown_calls == 3 && s_layer == NULL);
+    assert(!soulbrandt_guest_memory_is_ready());
 
     /* Both subsystems can be started cleanly after a failed attempt. */
     s_pad_init_result = 0;
