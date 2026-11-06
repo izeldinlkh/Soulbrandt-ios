@@ -423,22 +423,22 @@ static void pad_shutdown_backend(void) {}
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
         '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */',
-        '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */\\n#include "PS3DiscVFSBridge.h"',
+        '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */\n#include "PS3DiscVFSBridge.h"',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
         'static DIR*  g_dirs[FS_MAX];',
-        'static DIR*  g_dirs[FS_MAX];\\n#if defined(__APPLE__)\\nstatic uint8_t g_disc_dirs[FS_MAX];\\nstatic uint32_t g_disc_dir_index[FS_MAX];\\nstatic char g_disc_dir_path[FS_MAX][1024];\\n#endif',
+        'static DIR*  g_dirs[FS_MAX];\n#if defined(__APPLE__)\nstatic uint8_t g_disc_dirs[FS_MAX];\nstatic uint32_t g_disc_dir_index[FS_MAX];\nstatic char g_disc_dir_path[FS_MAX][1024];\n#endif',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
         'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]) { g_files[i] = f; return i; }',
-        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]\\n#if defined(__APPLE__)\\n        && !g_disc_dirs[i]\\n#endif\\n    ) { g_files[i] = f; return i; }',
+        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]\n#if defined(__APPLE__)\n        && !g_disc_dirs[i]\n#endif\n    ) { g_files[i] = f; return i; }',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
         'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]) { g_dirs[i] = d; return i; }',
-        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]\\n#if defined(__APPLE__)\\n        && !g_disc_dirs[i]\\n#endif\\n    ) { g_dirs[i] = d; return i; }',
+        'for (int i = 3; i < FS_MAX; i++) if (!g_files[i] && !g_dirs[i]\n#if defined(__APPLE__)\n        && !g_disc_dirs[i]\n#endif\n    ) { g_dirs[i] = d; return i; }',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
