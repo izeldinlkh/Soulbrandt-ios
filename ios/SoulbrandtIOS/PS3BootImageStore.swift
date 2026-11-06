@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 enum PS3BootImageStore {
@@ -70,7 +71,18 @@ enum PS3BootImageStore {
         }
         try output.synchronize()
         try output.close()
-        try FileManager.default.moveItem(at: temporary, to: destination)
+
+        // POSIX rename replaces an existing destination atomically on the same volume.
+        // The temporary file lives beside the destination, so a failed extraction never
+        // leaves a half-written EBOOT or destroys the previously completed one.
+        let renameResult = temporary.path.withCString { sourcePath in
+            destination.path.withCString { destinationPath in
+                Darwin.rename(sourcePath, destinationPath)
+            }
+        }
+        guard renameResult == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
         return destination
     }
 }
