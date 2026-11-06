@@ -72,6 +72,22 @@ private enum PS3DiscVFSSmokeTest {
         }
         precondition(appHomeStat == 0 && appHomeDirectory == 1 && appHomeSize == 0)
 
+        var appHomeEntry = [CChar](repeating: 0, count: 64)
+        var appHomeEntryIsDirectory: UInt8 = 1
+        let appHomeList = "/app_home".withCString { path in
+            appHomeEntry.withUnsafeMutableBufferPointer { buffer in
+                soulbrandt_disc_vfs_list(path, 0, buffer.baseAddress, 64, &appHomeEntryIsDirectory)
+            }
+        }
+        precondition(appHomeList == 1 &&
+                     String(cString: appHomeEntry) == "EBOOT.ELF" &&
+                     appHomeEntryIsDirectory == 0)
+
+        let appHomeTraversal = "/app_home/../../private".withCString {
+            soulbrandt_disc_vfs_open($0, &handle, &size)
+        }
+        precondition(appHomeTraversal < 0)
+
         var statSize: UInt64 = 0
         var isDirectory: UInt8 = 0
         let statResult = "/dev_bdvd/PS3_GAME".withCString {
