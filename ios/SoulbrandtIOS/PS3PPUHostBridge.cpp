@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <pthread.h>
 
 extern "C" {
 uint32_t ppu_load_elf(const char *path);
@@ -43,6 +44,8 @@ static void soulbrandt_guest_callback(uint32_t opd_addr,
 static uint32_t s_entry_opd;
 static int32_t s_ready;
 static int32_t s_tables_registered;
+static int32_t s_run_state; /* 0=not started, 1=running, 2=returned */
+static int32_t s_run_result;
 static std::mutex s_host_mutex;
 
 extern "C" int32_t soulbrandt_ppu_host_set_storage_roots(const char *hdd0_root,
@@ -91,9 +94,65 @@ extern "C" uint32_t soulbrandt_ppu_host_load_elf(const char *path)
 extern "C" void soulbrandt_ppu_host_reset_image(void)
 {
     std::lock_guard<std::mutex> lock(s_host_mutex);
+    if (s_run_state == 1) return; /* guest still owns vm_base and the runtime */
     s_entry_opd = 0;
     s_ready = 0;
+    s_run_state = 0;
+    s_run_result = 0;
     g_ps3_guest_caller = nullptr;
+}
+
+static void *soulbrandt_ppu_run_thread(void *)
+{
+    /* Match the upstream des_boot harness' default main guest stack. Keep the
+     * long-running guest off the Swift/UI thread; ppu_run owns its PPU context. */
+    (void)::setenv("PS3_BOOT_PATH", "/dev_bdvd/PS3_GAME/USRDIR/EBOOT.BIN", 1);
+    const int result = ppu_run(s_entry_opd, 0x0FF00000u);
+    std::lock_guard<std::mutex> lock(s_host_mutex);
+    s_run_result = result;
+    s_run_state = 2;
+    return nullptr;
+}
+
+extern "C" int32_t soulbrandt_ppu_host_start_game(void)
+{
+    std::lock_guard<std::mutex> lock(s_host_mutex);
+    if (!s_ready || !s_entry_opd) return -1;
+    if (ppu_function_count() == 0) return -2; /* never dispatch the empty fallback table */
+    if (s_run_state != 0) return -3;          /* one boot per loaded image/process */
+    pthread_attr_t attr;
+    if (pthread_attr_init(&attr) != 0) return -4;
+    const int stack_result = pthread_attr_setstacksize(&attr, 8u * 1024u * 1024u);
+    if (stack_result != 0) {
+        pthread_attr_destroy(&attr);
+        return -5;
+    }
+    pthread_t thread;
+    s_run_state = 1;
+    const int create_result = pthread_create(&thread, &attr, soulbrandt_ppu_run_thread, nullptr);
+    pthread_attr_destroy(&attr);
+    if (create_result != 0) {
+        s_run_state = 0;
+        return -6;
+    }
+    const int detach_result = pthread_detach(thread);
+    if (detach_result != 0) {
+        /* The thread is already running; do not pretend it can be cancelled. */
+        return -7;
+    }
+    return 0;
+}
+
+extern "C" int32_t soulbrandt_ppu_host_is_running(void)
+{
+    std::lock_guard<std::mutex> lock(s_host_mutex);
+    return s_run_state == 1;
+}
+
+extern "C" int32_t soulbrandt_ppu_host_run_result(void)
+{
+    std::lock_guard<std::mutex> lock(s_host_mutex);
+    return s_run_state == 2 ? s_run_result : INT32_MIN;
 }
 
 extern "C" uint32_t soulbrandt_ppu_host_function_count(void)
