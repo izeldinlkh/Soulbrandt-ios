@@ -10,7 +10,8 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 - Import is retained even when the image uses a filesystem the prototype cannot parse.
 - GameController framework discovery, Extended Gamepad monitoring, and a native CELL_PAD-compatible state bridge.
 - Read-only UDF-first, then ISO-9660/Joliet directory and file access, with bounded random-access reads. UDF is provided by the LGPL-2.1 libudfread submodule.
-- A native MetalKit drawable surface backed by CAMetalLayer. The pinned ps3recomp static runtime is built for iOS and linked into the app; the host bridge now initializes and shuts down the RSX Metal backend against that layer, without running a competing MTKView render loop. An MTL4 command-submission prototype exists but is not yet used by the RSX backend.
+- A native MetalKit drawable surface backed by CAMetalLayer. The pinned ps3recomp static runtime is built for iOS and linked into the app; the host bridge initializes and shuts down the RSX Metal backend against that layer, without running a competing MTKView render loop. An MTL4 command-submission prototype exists but is not yet used by the RSX backend.
+- A 4-GiB-aligned, demand-backed PS3 guest address-space reservation. It is initialized and released with the native runtime lifecycle; this is address-space infrastructure, not a running PPU loader or a claim that 4 GiB of physical RAM is allocated.
 - A lock-free stereo float ring between the PS3 mixer and an AVAudioSourceNode; the AVAudioEngine is deliberately dormant until the game runtime starts.
 - CI smoke tests for ISO/UDF, controller mapping, the controller C bridge, audio C bridge, and RSX/runtime bridge startup and teardown. The pinned RSX Metal backend, iOS cellPad adapter and iOS cellAudio adapter are also syntax-checked against the iOS SDK.
 
@@ -23,7 +24,7 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 - The desktop setup currently expects the supported US BLUS30443 v1.00 dump plus 28 decrypted game/firmware files; importing a single ISO does not satisfy that build pipeline.
 - Swift GameController state is translated into PS3 pad bytes. The linked runtime's native cellPad backend reads this bridge; guest game code is not running yet.
 - The pinned runtime archive also contains an AVAudioEngine-backed cellAudio output and skips SDL2 on iOS. The app-side lock-free audio bridge is tested, but AVAudioEngine remains dormant and the PS3 mixer is not started.
-- CI builds the generic ps3recomp runtime as an iOS ARM64 static archive. That archive is kept as a separate artifact, not linked into the app: doing so currently leaves unresolved host globals such as `g_active_ctx`, `ppu_vm_size`, `vm_write32`, and generated SPU image symbols. The full `des_boot` host and game-specific generated PPU/SPU code must be integrated before the runtime can be linked and booted.
+- CI builds the generic ps3recomp runtime as an iOS ARM64 static archive and links it into the app. A small iOS host-shim object satisfies generic archive references, and the guest-memory manager now owns `vm_base` and reserves the aligned 4-GiB address space. This is still not the full `des_boot` host: PPU loader/execution, game-specific generated PPU/SPU code, SPURS registration, VFS wiring, and firmware/HLE startup remain unintegrated.
 
 ## Generate and build on macOS
 
@@ -43,10 +44,11 @@ A signed, installable IPA additionally requires Apple signing assets (a developm
 
 1. Build and validate the native shell on a real iPhone.
 2. Implement UDF and the exact disc/VFS behavior needed by the supported Demon's Souls dump, then extract/validate the full set of inputs required by the existing recompilation pipeline.
-3. Build and link the pinned ps3recomp runtime for iOS, including its native GameController and AVAudioEngine adapters.
-4. Initialize the patched Objective-C Metal RSX backend against the app's CAMetalLayer; validate drawable acquisition and presentation on device.
-5. Connect the generated PPU/SPU game code and cellFs VFS, then validate guest shader translation, render targets, audio and saves. Once the legacy RSX path presents correctly, port its command submission to MTL4 where it improves measured CPU/GPU performance.
-6. Profile CPU/GPU frame time, memory and thermal behaviour on the A15 before targeting 30/60 FPS.
+3. Build and link the pinned ps3recomp runtime for iOS, including its native GameController and AVAudioEngine adapters; reserve the aligned guest address space.
+4. Port the `des_boot` host in layers: PPU loader and generated PPU code first, then SPU workloads/SPURS and the game-specific registration path.
+5. Mount the imported disc through the runtime VFS and provide the required decrypted game/firmware inputs.
+6. Initialize the patched Objective-C Metal RSX backend against the app's CAMetalLayer; connect real guest command submission and validate actual game frames, audio and saves.
+7. Profile CPU/GPU frame time, memory and thermal behaviour on the A15 before targeting 30 FPS.
 
 The existing desktop CMake target is not an iOS target. Its SDL2, Vulkan/vkd3d, and Win32 assumptions cannot simply be linked into this app.
 
