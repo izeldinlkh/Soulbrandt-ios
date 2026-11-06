@@ -125,6 +125,148 @@ int  rsx_metal_backend_init(u32 width, u32 height, const char* title);""",
 #endif""",
     )
     replace_once(
+        root, "libs/audio/cellAudio.c",
+        """#if defined(PS3RECOMP_AUDIO_USE_SDL2)
+  #define AUDIO_BACKEND_SDL2    1
+  #define AUDIO_BACKEND_WASAPI  0
+#elif defined(_WIN32)
+  #define AUDIO_BACKEND_SDL2    0
+  #define AUDIO_BACKEND_WASAPI  1
+#else
+  #define AUDIO_BACKEND_SDL2    1
+  #define AUDIO_BACKEND_WASAPI  0
+#endif""",
+        """#if defined(PS3RECOMP_AUDIO_IOS_NATIVE)
+  #define AUDIO_BACKEND_IOS_NATIVE 1
+  #define AUDIO_BACKEND_SDL2    0
+  #define AUDIO_BACKEND_WASAPI  0
+#elif defined(PS3RECOMP_AUDIO_USE_SDL2)
+  #define AUDIO_BACKEND_IOS_NATIVE 0
+  #define AUDIO_BACKEND_SDL2    1
+  #define AUDIO_BACKEND_WASAPI  0
+#elif defined(_WIN32)
+  #define AUDIO_BACKEND_IOS_NATIVE 0
+  #define AUDIO_BACKEND_SDL2    0
+  #define AUDIO_BACKEND_WASAPI  1
+#else
+  #define AUDIO_BACKEND_IOS_NATIVE 0
+  #define AUDIO_BACKEND_SDL2    1
+  #define AUDIO_BACKEND_WASAPI  0
+#endif""",
+    )
+    replace_once(
+        root, "libs/audio/cellAudio.c",
+        """#if AUDIO_BACKEND_SDL2
+
+static SDL_AudioDeviceID s_sdl_audio_dev = 0;""",
+        """#if AUDIO_BACKEND_IOS_NATIVE
+extern uint32_t soulbrandt_audio_write(const float* interleaved_stereo, uint32_t frames);
+extern uint32_t soulbrandt_audio_pull(float* interleaved_stereo, uint32_t frames);
+extern uint32_t soulbrandt_audio_room(void);
+extern uint32_t soulbrandt_audio_queued_frames(void);
+extern void soulbrandt_audio_reset(void);
+
+static int audio_backend_init(void)
+{
+    soulbrandt_audio_reset();
+    return 0;
+}
+
+static void audio_backend_shutdown(void)
+{
+    soulbrandt_audio_reset();
+}
+
+static void audio_backend_submit(const float* stereo_samples, u32 num_samples)
+{
+    (void)soulbrandt_audio_write(stereo_samples, num_samples);
+}
+
+static int audio_backend_room(void)
+{
+    return soulbrandt_audio_room() >= CELL_AUDIO_BLOCK_SAMPLES
+        ? CELL_AUDIO_BLOCK_SAMPLES : 0;
+}
+
+static int audio_backend_starving(void)
+{
+    return soulbrandt_audio_queued_frames() < CELL_AUDIO_BLOCK_SAMPLES * 2u;
+}
+
+static u32 audio_backend_queued_samples(void)
+{
+    return soulbrandt_audio_queued_frames();
+}
+
+static void audio_backend_follow(void) {}
+#endif /* AUDIO_BACKEND_IOS_NATIVE */
+
+#if AUDIO_BACKEND_SDL2
+
+static SDL_AudioDeviceID s_sdl_audio_dev = 0;""",
+    )
+    replace_once(
+        root, "CMakeLists.txt",
+        """else()
+    # cellPad and cellAudio select their SDL2 backends unconditionally off
+    # Windows (see PAD_BACKEND_SDL2 / AUDIO_BACKEND_SDL2), so SDL2 is required
+    # here -- docs/BUILDING.md already lists it as the Linux/macOS dependency.
+    find_package(SDL2 QUIET)
+    if(SDL2_FOUND)
+        if(TARGET SDL2::SDL2)
+            target_link_libraries(ps3recomp_runtime PRIVATE SDL2::SDL2)
+        else()
+            target_include_directories(ps3recomp_runtime PRIVATE ${SDL2_INCLUDE_DIRS})
+            target_link_libraries(ps3recomp_runtime PRIVATE ${SDL2_LIBRARIES})
+        endif()
+        message(STATUS "  SDL2:         found (input + audio backends enabled)")
+    else()
+        message(FATAL_ERROR
+            "SDL2 not found. It provides the cellPad and cellAudio backends on "
+            "non-Windows hosts.\\n"
+            "  macOS:  brew install sdl2\\n"
+            "  Debian: apt install libsdl2-dev\\n"
+            "If SDL2 is installed in a non-standard prefix, pass "
+            "-DCMAKE_PREFIX_PATH=<prefix>.")
+    endif()
+
+    find_package(Threads REQUIRED)""",
+        """else()
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        message(STATUS "  SDL2:         omitted (native GameController + AVAudioEngine backends)")
+    else()
+        # cellPad and cellAudio select their SDL2 backends unconditionally off
+        # Windows, so SDL2 remains required on Linux and macOS.
+        find_package(SDL2 QUIET)
+        if(SDL2_FOUND)
+            if(TARGET SDL2::SDL2)
+                target_link_libraries(ps3recomp_runtime PRIVATE SDL2::SDL2)
+            else()
+                target_include_directories(ps3recomp_runtime PRIVATE ${SDL2_INCLUDE_DIRS})
+                target_link_libraries(ps3recomp_runtime PRIVATE ${SDL2_LIBRARIES})
+            endif()
+            message(STATUS "  SDL2:         found (input + audio backends enabled)")
+        else()
+            message(FATAL_ERROR
+                "SDL2 not found. It provides the cellPad and cellAudio backends on "
+                "non-Windows hosts.\\n"
+                "  macOS:  brew install sdl2\\n"
+                "  Debian: apt install libsdl2-dev\\n"
+                "If SDL2 is installed in a non-standard prefix, pass "
+                "-DCMAKE_PREFIX_PATH=<prefix>.")
+        endif()
+    endif()
+
+    find_package(Threads REQUIRED)""",
+    )
+    replace_once(
+        root, "CMakeLists.txt",
+        """        target_compile_definitions(ps3recomp_runtime PRIVATE PS3RECOMP_PAD_IOS_NATIVE=1)""",
+        """        target_compile_definitions(ps3recomp_runtime PRIVATE
+            PS3RECOMP_PAD_IOS_NATIVE=1
+            PS3RECOMP_AUDIO_IOS_NATIVE=1)""",
+    )
+    replace_once(
         root, "libs/input/cellPad.c",
         """#if defined(PS3RECOMP_PAD_USE_SDL2)
   #define PAD_BACKEND_SDL2  1
