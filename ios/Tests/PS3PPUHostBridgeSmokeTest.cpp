@@ -38,6 +38,7 @@ static unsigned g_hle_init_calls = 0;
 static unsigned g_sysprx_register_calls = 0;
 static unsigned g_fs_register_calls = 0;
 static unsigned g_syscall_init_calls = 0;
+static unsigned g_paramsfo_init_calls = 0;
 
 extern "C" int32_t soulbrandt_guest_memory_is_ready(void)
 {
