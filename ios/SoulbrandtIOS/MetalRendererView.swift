@@ -62,7 +62,12 @@ private struct MetalRenderSurface: UIViewRepresentable {
         layer.presentsWithTransaction = false
         soulbrandt_metal_layer_set(Unmanaged.passUnretained(layer).toOpaque())
 
-        statusChanged("\(device.name) • Metal drawable surface ready for RSX")
+        let runtimeResult = soulbrandt_runtime_prepare()
+        if runtimeResult == 0 {
+            statusChanged("\(device.name) • RSX layer attached • cellPad HLE ready")
+        } else {
+            statusChanged("\(device.name) • Metal layer ready • runtime prepare failed (\(runtimeResult))")
+        }
         return view
     }
 
@@ -71,6 +76,7 @@ private struct MetalRenderSurface: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: MTKView, coordinator: ()) {
+        soulbrandt_runtime_shutdown()
         if let layer = uiView.layer as? CAMetalLayer {
             soulbrandt_metal_layer_clear(Unmanaged.passUnretained(layer).toOpaque())
         }
