@@ -7,6 +7,14 @@
 extern "C" {
 #endif
 
+typedef struct soulbrandt_guest_elf_info {
+    uint32_t entry_opd;
+    uint32_t tls_vaddr;
+    uint32_t tls_filesz;
+    uint32_t tls_memsz;
+    uint32_t load_segment_count;
+} soulbrandt_guest_elf_info;
+
 /* Reserve the complete 32-bit PS3 guest address space. The returned base is
  * exactly 4 GiB aligned because ps3recomp converts some host pointers back to
  * guest EAs by truncating their low 32 bits. The 4 GiB mapping is virtual;
@@ -15,6 +23,12 @@ int32_t soulbrandt_guest_memory_init(void);
 void soulbrandt_guest_memory_shutdown(void);
 int32_t soulbrandt_guest_memory_is_ready(void);
 uint64_t soulbrandt_guest_memory_size(void);
+
+/* Load a decrypted big-endian ELF64 PowerPC64 image into the reserved guest VM.
+ * Validates the complete program-header table and every PT_LOAD range before
+ * modifying guest memory. Returns 0 on success, negative on malformed input. */
+int32_t soulbrandt_guest_load_elf(const void *bytes, uint64_t length,
+                                  soulbrandt_guest_elf_info *info);
 
 #ifdef __cplusplus
 }
