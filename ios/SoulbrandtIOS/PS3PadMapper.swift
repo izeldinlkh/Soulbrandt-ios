@@ -15,8 +15,8 @@ struct ControllerInputSnapshot: Equatable {
     var rightShoulder = false
     var leftThumbstickButton = false
     var rightThumbstickButton = false
-    var optionsButton = false
-    var homeButton = false
+    var menuButton = false
+    var selectButton = false
     var dpadX: Float = 0
     var dpadY: Float = 0
 }
@@ -74,8 +74,10 @@ enum PS3PadMapper {
         set(.r2, snapshot.rightTrigger >= 0.5)
         set(.l3, snapshot.leftThumbstickButton)
         set(.r3, snapshot.rightThumbstickButton)
-        set(.start, snapshot.optionsButton)
-        set(.select, snapshot.homeButton)
+        // Apple maps DualShock/DualSense Options to buttonMenu and Share/Create
+        // to buttonOptions. The touchpad click is used as Select on PlayStation pads.
+        set(.start, snapshot.menuButton)
+        set(.select, snapshot.selectButton)
 
         let threshold: Float = 0.5
         set(.left, snapshot.dpadX < -threshold)

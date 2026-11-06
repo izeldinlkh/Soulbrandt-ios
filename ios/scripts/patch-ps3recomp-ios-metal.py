@@ -162,6 +162,7 @@ int  rsx_metal_backend_init(u32 width, u32 height, const char* title);""",
 #if PAD_BACKEND_IOS_NATIVE
 typedef struct SoulbrandtPadState {
     u16 buttons;
+    u8 connected;
     u8 left_x, left_y, right_x, right_y;
     u8 analog_l2, analog_r2;
 } SoulbrandtPadState;
@@ -172,12 +173,12 @@ extern void soulbrandt_pad_state_read(SoulbrandtPadState* out_state);
  * unchanged and no SDL controller enumeration runs on iOS. */
 static void pad_poll_ios_native(void)
 {
-    SoulbrandtPadState state = { 0, 128, 128, 128, 128, 0, 0 };
+    SoulbrandtPadState state = { 0, 0, 128, 128, 128, 128, 0, 0 };
     soulbrandt_pad_state_read(&state);
     for (int i = 0; i < PAD_MAX_HOST_PORTS; i++) {
         PadHostState* hs = &s_host_state[i];
         memset(hs, 0, sizeof *hs);
-        hs->connected = i == 0;
+        hs->connected = i == 0 && state.connected != 0;
         hs->analog_lx = hs->analog_ly = hs->analog_rx = hs->analog_ry = 128;
         s_poll_dev[i] = RUMBLE_NONE;
         if (i == 0) {

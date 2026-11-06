@@ -17,7 +17,7 @@ let all = ControllerInputSnapshot(
     buttonA: true, buttonB: true, buttonX: true, buttonY: true,
     leftShoulder: true, rightShoulder: true,
     leftThumbstickButton: true, rightThumbstickButton: true,
-    optionsButton: true, homeButton: true,
+    menuButton: true, selectButton: true,
     dpadX: -1, dpadY: 1
 )
 let mapped = PS3PadMapper.make(snapshot: all)

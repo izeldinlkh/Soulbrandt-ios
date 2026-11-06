@@ -74,9 +74,20 @@ final class ControllerMonitor: ObservableObject {
         input = snapshot
         let state = PS3PadMapper.make(snapshot: snapshot)
         soulbrandt_pad_state_write(
-            state.buttons, state.leftX, state.leftY, state.rightX, state.rightY,
+            1, state.buttons, state.leftX, state.leftY, state.rightX, state.rightY,
             state.analogL2, state.analogR2
         )
+    }
+
+    private nonisolated static func selectButtonState(from pad: GCExtendedGamepad) -> Bool {
+        if let dualSense = pad as? GCDualSenseGamepad {
+            return dualSense.touchpadButton.isPressed
+        }
+        if let dualShock = pad as? GCDualShockGamepad {
+            return dualShock.touchpadButton.isPressed
+        }
+        // On Xbox and generic extended profiles, Options is the Back/View button.
+        return pad.buttonOptions?.isPressed ?? false
     }
 
     private nonisolated static func snapshot(from pad: GCExtendedGamepad) -> ControllerInputSnapshot {
@@ -95,8 +106,8 @@ final class ControllerMonitor: ObservableObject {
             rightShoulder: pad.rightShoulder.isPressed,
             leftThumbstickButton: pad.leftThumbstickButton?.isPressed ?? false,
             rightThumbstickButton: pad.rightThumbstickButton?.isPressed ?? false,
-            optionsButton: pad.buttonOptions?.isPressed ?? false,
-            homeButton: pad.buttonHome?.isPressed ?? false,
+            menuButton: pad.buttonMenu.isPressed,
+            selectButton: selectButtonState(from: pad),
             dpadX: pad.dpad.xAxis.value,
             dpadY: pad.dpad.yAxis.value
         )

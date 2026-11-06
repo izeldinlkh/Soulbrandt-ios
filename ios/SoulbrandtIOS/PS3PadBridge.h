@@ -9,12 +9,13 @@ extern "C" {
 
 typedef struct SoulbrandtPadState {
     uint16_t buttons;
+    uint8_t connected;
     uint8_t left_x, left_y, right_x, right_y;
     uint8_t analog_l2, analog_r2;
 } SoulbrandtPadState;
 
 // Thread-safe boundary between GameController callbacks and the PS3 cellPad HLE.
-void soulbrandt_pad_state_write(uint16_t buttons,
+void soulbrandt_pad_state_write(uint8_t connected, uint16_t buttons,
                                 uint8_t left_x, uint8_t left_y,
                                 uint8_t right_x, uint8_t right_y,
                                 uint8_t analog_l2, uint8_t analog_r2);
