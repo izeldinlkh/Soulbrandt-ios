@@ -106,6 +106,8 @@ int  rsx_metal_backend_init(u32 width, u32 height, const char* title);""",
     )
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         target_link_libraries(ps3recomp_runtime PUBLIC "-framework AppKit")
+    else()
+        target_compile_definitions(ps3recomp_runtime PRIVATE PS3RECOMP_PAD_IOS_NATIVE=1)
     endif()""",
     )
     replace_once(
@@ -226,17 +228,6 @@ static void pad_poll_ios_native(void)
     pad_poll_keyboard();
 #endif
 #endif""",
-    )
-    replace_once(
-        root, "CMakeLists.txt",
-        """    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        target_link_libraries(ps3recomp_runtime PUBLIC "-framework AppKit")
-    endif()""",
-        """    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        target_link_libraries(ps3recomp_runtime PUBLIC "-framework AppKit")
-    else()
-        target_compile_definitions(ps3recomp_runtime PRIVATE PS3RECOMP_PAD_IOS_NATIVE=1)
-    endif()""",
     )
     print("ps3recomp iOS Metal layer and native cellPad patches applied (or were already present)")
 
