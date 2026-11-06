@@ -29,9 +29,8 @@ final class ISO9660Reader {
 
     init(url: URL) throws {
         handle = try FileHandle(forReadingFrom: url)
-        guard let fileSize = try handle.seekToEnd(), fileSize >= 17 * sectorSize else {
-            throw ISOError.invalidImage
-        }
+        let fileSize = try handle.seekToEnd()
+        guard fileSize >= 17 * sectorSize else { throw ISOError.invalidImage }
 
         var primary: (Entry, UInt64)?
         var supplementary: (Entry, UInt64)?
@@ -152,7 +151,10 @@ final class ISO9660Reader {
         if rawName.count == 1 && (rawName[0] == 0 || rawName[0] == 1) {
             decoded = rawName[0] == 0 ? "." : ".."
         } else if joliet {
-            decoded = String(decoding: rawName, as: UTF16BigEndian.self)
+            let units = stride(from: 0, to: rawName.count - (rawName.count % 2), by: 2).map { index in
+                (UInt16(rawName[index]) << 8) | UInt16(rawName[index + 1])
+            }
+            decoded = String(decoding: units, as: UTF16.self)
         } else {
             decoded = String(decoding: rawName, as: UTF8.self)
         }
