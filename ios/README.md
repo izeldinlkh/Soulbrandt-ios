@@ -16,7 +16,8 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 
 - No PS3 boot or integration with ps3recomp's cellFs VFS.
 - ISO reader does not support UDF, multi-extent files, interleaved files, or Rock Ridge extensions. A PS3 Blu-ray ISO may require UDF support; a successful import does not prove the game filesystem can be read.
-- Finding EBOOT.BIN or EBOOT.ELF is only a filename check; it does not establish that the executable is decrypted or suitable for the recompilation pipeline.
+- The importer inspects the EBOOT header (ELF, likely SELF, or unknown), but an ELF header alone does not prove the full executable or the other required game/firmware files are decrypted and suitable for recompilation.
+- The desktop setup currently expects the supported US BLUS30443 v1.00 dump plus 28 decrypted game/firmware files; importing a single ISO does not satisfy that build pipeline.
 - Controller input is detected but not yet mapped into Soulbrandt's input abstraction.
 - No PPU/SPU runtime, RSX renderer, audio path, save system, game loop, or IPA is included.
 
@@ -37,7 +38,7 @@ A signed, installable IPA additionally requires Apple signing assets (a developm
 ## Porting order
 
 1. Build and validate the native shell on a real iPhone.
-2. Implement UDF and the exact disc/VFS behavior needed by the supported Demon's Souls dump.
+2. Implement UDF and the exact disc/VFS behavior needed by the supported Demon's Souls dump, then extract/validate the full set of inputs required by the existing recompilation pipeline.
 3. Replace desktop window/input/output assumptions with UIKit, GameController, Metal, and iOS audio.
 4. Integrate the pinned ps3recomp runtime and generated PPU/SPU game code.
 5. Implement an iOS-compatible RSX backend, then profile and optimize on the target device.
