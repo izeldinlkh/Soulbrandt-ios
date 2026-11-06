@@ -113,7 +113,6 @@ struct ContentView: View {
             )
             .task {
                 restoreImportedImage()
-                GameAudioSession.configure()
             }
         }
     }
