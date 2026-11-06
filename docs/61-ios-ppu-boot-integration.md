@@ -82,8 +82,8 @@ game rendering.
 
 ## Ordered next milestones
 
-1. Validate the VFS against the supported BLUS30443 image and add writable
-   HDD overlays for save/cache paths.
+1. Validate disc and HDD path semantics against the supported BLUS30443 image;
+   complete unlink/rmdir and remaining cellFs operations for save/cache behavior.
 2. Build a reproducible arm64 PPU-lift pipeline for the exact supported EBOOT
    and package the resulting game function table/native units into the IPA.
 3. Load the required game/firmware PRX modules and complete HLE registration.
