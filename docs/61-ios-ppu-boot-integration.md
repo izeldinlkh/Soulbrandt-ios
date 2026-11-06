@@ -62,11 +62,14 @@ it must be wired into cellFs before game boot is claimed.
 
 ## Renderer boundary
 
-The upstream Metal RSX backend is compiled and can own the app's `CAMetalLayer`. The
-animated MTKView triangle is only a synthetic presentation test. Actual game rendering
-requires PPU code to initialize cellGcm, submit guest RSX command buffers, and reach the
-backend's command-consumption/present path. No synthetic triangle or successful backend
-initialization counts as a game frame.
+The upstream Metal RSX backend is compiled and can own the app's `CAMetalLayer`. The iOS
+runtime now starts a 59.94 Hz GCM interrupt clock plus a 4 ms FIFO-drain loop; it dispatches
+pending guest vblank/flip callbacks and presents only after a fully drained flip boundary.
+The scheduler has a Linux smoke test and is wired into runtime prepare/shutdown. The
+animated MTKView triangle remains only a synthetic presentation test. Actual game rendering
+still requires guest PPU code to initialize cellGcm and submit real RSX command buffers.
+No synthetic triangle, empty FIFO drain, or successful backend initialization counts as a
+game frame.
 
 ## Ordered next milestones
 
