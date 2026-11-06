@@ -14,6 +14,7 @@ void ppu_hle_init(void);
 void ppu_sysprx_register(void);
 void ppu_fs_register(void);
 void lv2_init_syscalls(void);
+void cellGame_init_from_paramsfo(const char *sfo_path);
 int ppu_run(uint32_t entry_opd, uint32_t stack_top);
 uint32_t ppu_function_count(void);
 uint32_t ps3_hle_count(void);
@@ -65,6 +66,16 @@ extern "C" int32_t soulbrandt_ppu_host_set_storage_roots(const char *hdd0_root,
     if (::setenv("PS3_HDD1_ROOT", hdd1_root, 1) != 0) return -4;
     return 0;
 }
+extern "C" int32_t soulbrandt_ppu_host_init_title_metadata(const char *paramsfo_path)
+{
+    std::lock_guard<std::mutex> lock(s_host_mutex);
+    if (s_ready || !paramsfo_path || !*paramsfo_path) return -1;
+    /* Match the upstream boot harness: title ID/name/version must be loaded
+     * from PARAM.SFO before the guest asks cellGame for content paths. */
+    cellGame_init_from_paramsfo(paramsfo_path);
+    return 0;
+}
+
 extern "C" uint32_t soulbrandt_ppu_host_load_elf(const char *path)
 {
     std::lock_guard<std::mutex> lock(s_host_mutex);
