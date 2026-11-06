@@ -20,6 +20,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Run the portable parser test on Linux as an independent scheduling and
+  # correctness signal while the native iOS build waits for Apple's Xcode runner.
+  iso-reader-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ISO reader smoke test
+        run: bash ios/scripts/run-iso-smoke-test.sh
+
   build-ios-shell:
     runs-on: macos-15
     steps:
