@@ -1,6 +1,7 @@
 #include "PS3RuntimeBridge.h"
 #include "PS3PadBridge.h"
 #include "PS3GuestMemory.h"
+#include "PS3PPUHostBridge.h"
 #include "PS3RSXFramePump.h"
 #include <stddef.h>
 
@@ -114,6 +115,7 @@ void soulbrandt_runtime_shutdown(void)
         rsx_metal_backend_set_layer(NULL);
         s_runtime_layer_attached = 0;
     }
+    soulbrandt_ppu_host_reset_image();
     soulbrandt_guest_memory_shutdown();
 #else
     s_runtime_pad_ready = 0;
