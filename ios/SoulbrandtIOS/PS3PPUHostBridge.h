@@ -1,0 +1,21 @@
+#ifndef SOULBRANDT_PPU_HOST_BRIDGE_H
+#define SOULBRANDT_PPU_HOST_BRIDGE_H
+
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Load the decrypted EBOOT through ps3recomp, then register the compiled PPU
+ * lift, HLE NIDs, sysPrx CRT, cellFs VFS and LV2 syscall table. This does not
+ * dispatch guest code; ppu_run remains gated on a real title lift. */
+uint32_t soulbrandt_ppu_host_load_elf(const char *path);
+uint32_t soulbrandt_ppu_host_function_count(void);
+uint32_t soulbrandt_ppu_host_hle_count(void);
+int32_t soulbrandt_ppu_host_is_ready(void);
+
+#ifdef __cplusplus
+}
+#endif
+#endif

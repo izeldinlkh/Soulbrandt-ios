@@ -70,7 +70,7 @@ struct ContentView: View {
                             .buttonStyle(.bordered)
                             .disabled(!rsxBackendReady)
                         }
-                        Text("This only maps ELF segments into guest RAM. PPU execution and game boot are not implemented yet.")
+                        Text("The upstream PPU loader now maps the ELF and initializes HLE, filesystem and syscall tables. Guest execution still requires the game-specific PPU lift and SPU workloads in the IPA.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text("UDF support uses libudfread (LGPL-2.1); see the bundled COPYING notice.")
@@ -164,25 +164,16 @@ struct ContentView: View {
 
     private func loadExtractedEboot() {
         guard let url = extractedEbootURL, rsxBackendReady else { return }
-        do {
-            let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            var info = soulbrandt_guest_elf_info()
-            let result = data.withUnsafeBytes { bytes -> Int32 in
-                guard let base = bytes.baseAddress else { return -1 }
-                return soulbrandt_guest_load_elf(base, UInt64(bytes.count), &info)
-            }
-            if result == 0 {
-                ebootStatus = String(
-                    format: "ELF loaded • %u PT_LOAD segments • entry 0x%08X • TLS 0x%08X (%u/%u) • PPU not started",
-                    info.load_segment_count, info.entry_opd, info.tls_vaddr,
-                    info.tls_filesz, info.tls_memsz
-                )
-            } else {
-                ebootStatus = "ELF loader rejected image (\(result))"
-            }
-        } catch {
-            ebootStatus = "Could not read extracted EBOOT: \(error.localizedDescription)"
+        let entry = url.path.withCString { soulbrandt_ppu_host_load_elf($0) }
+        guard entry != 0 else {
+            ebootStatus = "Upstream PPU loader rejected the extracted EBOOT"
+            return
         }
+        let functions = soulbrandt_ppu_host_function_count()
+        ebootStatus = String(
+            format: "PPU loader mapped EBOOT • entry OPD 0x%08X • %u lifted functions registered • execution not started",
+            entry, functions
+        )
     }
 
     private func initializeRSXBackend() {

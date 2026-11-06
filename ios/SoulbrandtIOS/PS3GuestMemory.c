@@ -21,7 +21,12 @@
  * ppu_vm_size stays zero: with a 4-GiB-aligned base, the runtime uses the full
  * 32-bit address range and the fast accessors do not apply a smaller bound. */
 uint8_t *vm_base = NULL;
+#if defined(SOULBRANDT_LINKED_PPU_HOST)
+/* The upstream PPU loader owns this global when its scaffold is linked. */
+extern uint32_t ppu_vm_size;
+#else
 uint32_t ppu_vm_size = 0;
+#endif
 
 static pthread_mutex_t s_vm_mutex = PTHREAD_MUTEX_INITIALIZER;
 

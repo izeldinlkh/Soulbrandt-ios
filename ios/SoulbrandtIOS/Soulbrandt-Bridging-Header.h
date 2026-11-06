@@ -5,4 +5,5 @@
 #include "RSXBackendBridge.h"
 
 #include "PS3GuestMemory.h"
+#include "PS3PPUHostBridge.h"
 

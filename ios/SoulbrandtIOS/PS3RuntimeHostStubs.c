@@ -1,3 +1,4 @@
+#if !defined(SOULBRANDT_LINKED_PPU_HOST)
 /*
  * iOS host shim adapted from JonathanDC64/ps3recomp runtime/host/host_stubs.c
  * pinned at b7adbb054eb087c8e9f0399d64001af89b1ae93d.
@@ -153,3 +154,5 @@ uint64_t ppu_guest_call(uint32_t opd, uint64_t a0, uint64_t a1, uint64_t a2, uin
     (void)opd; (void)a0; (void)a1; (void)a2; (void)a3;
     return 0;
 }
+
+#endif /* !SOULBRANDT_LINKED_PPU_HOST */
