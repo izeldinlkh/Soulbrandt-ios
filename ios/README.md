@@ -1,21 +1,24 @@
 # iOS bring-up (prototype)
 
-This directory is the first native iOS shell, not a playable port.
+This directory contains a native iOS shell and early disc-inspection code. It is not a playable port.
 
-## What exists
+## Implemented
 
-- SwiftUI application entry point and a minimal home screen.
-- Files picker that accepts ISO files, requests security-scoped access, and copies the image into the app's Application Support directory.
-- GameController framework discovery and basic Extended Gamepad input detection.
-- A read-only ISO-9660/Joliet directory and bounded file-range reader prototype.
-- XcodeGen project definition.
+- SwiftUI app entry point and basic home screen.
+- Files picker accepts an .iso file and copies it to Application Support off the main thread.
+- The imported filename and inspection summary are remembered across launches.
+- Import is retained even when the image uses a filesystem the prototype cannot parse.
+- GameController framework discovery and basic Extended Gamepad input-event monitoring.
+- Read-only ISO-9660 primary-volume and Joliet directory parsing, with bounded random-access file reads.
+- Synthetic ISO smoke test run by the macOS CI workflow.
 
-## What does not exist
+## Known limitations
 
-- The ISO reader is not yet integrated into ps3recomp's cellFs VFS. It handles ISO-9660 primary/Joliet directory records only; UDF, multi-extent and interleaved files are not supported.
-- No PS3 boot, PPU/SPU runtime, RSX renderer, audio, save-state, or game loop.
-- Controller events are detected for bring-up only; they are not mapped to Soulbrandt's input system.
-- No IPA is produced by this source-only commit.
+- No PS3 boot or integration with ps3recomp's cellFs VFS.
+- ISO reader does not support UDF, multi-extent files, interleaved files, or Rock Ridge extensions. A PS3 Blu-ray ISO may require UDF support; a successful import does not prove the game filesystem can be read.
+- Finding EBOOT.BIN or EBOOT.ELF is only a filename check; it does not establish that the executable is decrypted or suitable for the recompilation pipeline.
+- Controller input is detected but not yet mapped into Soulbrandt's input abstraction.
+- No PPU/SPU runtime, RSX renderer, audio path, save system, game loop, or IPA is included.
 
 ## Generate and build on macOS
 
@@ -29,15 +32,14 @@ xcodebuild -project SoulbrandtIOS.xcodeproj \
   -configuration Debug CODE_SIGNING_ALLOWED=NO build
 ```
 
-A signed, installable IPA additionally needs Apple signing assets (a development certificate and provisioning profile, or an appropriate distribution workflow).
+A signed, installable IPA additionally requires Apple signing assets (a development certificate and provisioning profile, or an appropriate distribution workflow).
 
 ## Porting order
 
-1. Make the iOS shell build and validate file import/controller discovery on device.
-2. Replace the desktop SDL/window/input layer with UIKit, GameController, and a Metal-backed presentation surface.
-3. Add an iOS-compatible RSX backend and audio/output path.
-4. Integrate the pinned ps3recomp runtime and generated game code.
-5. Implement PS3 disc/VFS support for the filesystem formats actually used by the supported Demon's Souls dump; an ISO extension alone does not imply ISO-9660.
-6. Profile and optimize on the target iPhone, then sign and package.
+1. Build and validate the native shell on a real iPhone.
+2. Implement UDF and the exact disc/VFS behavior needed by the supported Demon's Souls dump.
+3. Replace desktop window/input/output assumptions with UIKit, GameController, Metal, and iOS audio.
+4. Integrate the pinned ps3recomp runtime and generated PPU/SPU game code.
+5. Implement an iOS-compatible RSX backend, then profile and optimize on the target device.
 
-The existing desktop CMake target is not an iOS target. Do not try to link its SDL2/Vulkan/vkd3d/Win32 assumptions directly into this app.
+The existing desktop CMake target is not an iOS target. Its SDL2, Vulkan/vkd3d, and Win32 assumptions cannot simply be linked into this app.
