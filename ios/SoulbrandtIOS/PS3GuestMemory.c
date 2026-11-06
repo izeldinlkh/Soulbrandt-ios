@@ -104,3 +104,83 @@ uint64_t soulbrandt_guest_memory_size(void)
 {
     return (uint64_t)SOULBRANDT_VM_SIZE;
 }
+
+static uint16_t soulbrandt_be16(const uint8_t *p)
+{
+    return (uint16_t)(((uint16_t)p[0] << 8) | p[1]);
+}
+
+static uint32_t soulbrandt_be32(const uint8_t *p)
+{
+    return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
+           ((uint32_t)p[2] << 8) | (uint32_t)p[3];
+}
+
+static uint64_t soulbrandt_be64(const uint8_t *p)
+{
+    return ((uint64_t)soulbrandt_be32(p) << 32) | soulbrandt_be32(p + 4);
+}
+
+int32_t soulbrandt_guest_load_elf(const void *bytes, uint64_t length,
+                                  soulbrandt_guest_elf_info *info)
+{
+    const uint8_t *file = (const uint8_t *)bytes;
+    if (!vm_base || !file || !info || length < 64) return -1;
+    if (file[0] != 0x7f || file[1] != 'E' || file[2] != 'L' ||
+        file[3] != 'F' || file[4] != 2 || file[5] != 2 || file[6] != 1)
+        return -2;
+    if (soulbrandt_be16(file + 18) != 21) return -3;
+
+    const uint64_t entry = soulbrandt_be64(file + 24);
+    const uint64_t phoff = soulbrandt_be64(file + 32);
+    const uint16_t ehsize = soulbrandt_be16(file + 52);
+    const uint16_t phentsize = soulbrandt_be16(file + 54);
+    const uint16_t phnum = soulbrandt_be16(file + 56);
+    if (ehsize < 64 || phentsize < 56 || phnum == 0 || entry == 0 ||
+        entry > UINT32_MAX) return -4;
+    if (phoff > length || (uint64_t)phnum > (length - phoff) / phentsize)
+        return -5;
+
+    soulbrandt_guest_elf_info parsed = {0};
+    parsed.entry_opd = (uint32_t)entry;
+
+    for (uint16_t i = 0; i < phnum; ++i) {
+        const uint8_t *ph = file + phoff + (uint64_t)i * phentsize;
+        const uint32_t type = soulbrandt_be32(ph);
+        if (type == 7) {
+            const uint64_t vaddr = soulbrandt_be64(ph + 16);
+            const uint64_t filesz = soulbrandt_be64(ph + 32);
+            const uint64_t memsz = soulbrandt_be64(ph + 40);
+            if (vaddr > UINT32_MAX || filesz > UINT32_MAX ||
+                memsz > UINT32_MAX || filesz > memsz ||
+                vaddr + memsz > SOULBRANDT_VM_SIZE) return -6;
+            parsed.tls_vaddr = (uint32_t)vaddr;
+            parsed.tls_filesz = (uint32_t)filesz;
+            parsed.tls_memsz = (uint32_t)memsz;
+        } else if (type == 1) {
+            const uint64_t offset = soulbrandt_be64(ph + 8);
+            const uint64_t vaddr = soulbrandt_be64(ph + 16);
+            const uint64_t filesz = soulbrandt_be64(ph + 32);
+            const uint64_t memsz = soulbrandt_be64(ph + 40);
+            if (filesz > memsz || offset > length || filesz > length - offset ||
+                vaddr > UINT32_MAX || memsz > SOULBRANDT_VM_SIZE ||
+                vaddr + memsz > SOULBRANDT_VM_SIZE) return -7;
+            parsed.load_segment_count++;
+        }
+    }
+    if (parsed.load_segment_count == 0) return -8;
+
+    for (uint16_t i = 0; i < phnum; ++i) {
+        const uint8_t *ph = file + phoff + (uint64_t)i * phentsize;
+        if (soulbrandt_be32(ph) != 1) continue;
+        const uint64_t offset = soulbrandt_be64(ph + 8);
+        const uint64_t vaddr = soulbrandt_be64(ph + 16);
+        const uint64_t filesz = soulbrandt_be64(ph + 32);
+        const uint64_t memsz = soulbrandt_be64(ph + 40);
+        if (filesz) memcpy(vm_base + (uint32_t)vaddr, file + offset, (size_t)filesz);
+        if (memsz > filesz)
+            memset(vm_base + (uint32_t)vaddr + filesz, 0, (size_t)(memsz - filesz));
+    }
+    *info = parsed;
+    return 0;
+}
