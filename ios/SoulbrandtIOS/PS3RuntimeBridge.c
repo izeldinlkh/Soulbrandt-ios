@@ -6,7 +6,7 @@ static int s_runtime_pad_ready;
 static int s_runtime_rsx_ready;
 static int s_runtime_layer_attached;
 
-#if defined(SOULBRANDT_LINKED_RUNTIME)
+#if defined(SOULBRANDT_LINKED_RENDER_RUNTIME)
 /* These symbols are supplied by the complete des_boot host link. The generic
  * ps3recomp_runtime archive alone is not sufficient: it leaves host globals
  * and game-specific PPU/SPU symbols unresolved. */
@@ -26,8 +26,8 @@ int32_t soulbrandt_runtime_prepare(void)
     void *layer = soulbrandt_metal_layer_get();
     if (!layer) return -1000;
 
-#if !defined(SOULBRANDT_LINKED_RUNTIME)
-    /* Do not link a partial runtime or invent placeholder host/game symbols. */
+#if !defined(SOULBRANDT_LINKED_RENDER_RUNTIME)
+    /* Renderer/input runtime is not part of this target's link. */
     return -1001;
 #else
     rsx_metal_backend_set_layer(layer);
@@ -61,14 +61,14 @@ int32_t soulbrandt_runtime_prepare(void)
 
 void soulbrandt_runtime_poll_pad(void)
 {
-#if defined(SOULBRANDT_LINKED_RUNTIME)
+#if defined(SOULBRANDT_LINKED_RENDER_RUNTIME)
     if (s_runtime_pad_ready) cellPad_poll();
 #endif
 }
 
 void soulbrandt_runtime_shutdown(void)
 {
-#if defined(SOULBRANDT_LINKED_RUNTIME)
+#if defined(SOULBRANDT_LINKED_RENDER_RUNTIME)
     if (s_runtime_pad_ready) {
         (void)cellPadEnd();
         s_runtime_pad_ready = 0;
