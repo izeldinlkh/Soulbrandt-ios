@@ -2,10 +2,28 @@ import Combine
 import GameController
 import Foundation
 
+struct ControllerInputSnapshot: Equatable {
+    var leftX: Float = 0
+    var leftY: Float = 0
+    var rightX: Float = 0
+    var rightY: Float = 0
+    var leftTrigger: Float = 0
+    var rightTrigger: Float = 0
+    var buttonA = false
+    var buttonB = false
+    var buttonX = false
+    var buttonY = false
+    var leftShoulder = false
+    var rightShoulder = false
+    var dpadX: Float = 0
+    var dpadY: Float = 0
+}
+
 @MainActor
 final class ControllerMonitor: ObservableObject {
     @Published private(set) var controllerName: String?
     @Published private(set) var lastInput = "No controller input yet"
+    @Published private(set) var input = ControllerInputSnapshot()
 
     private var observers: [NSObjectProtocol] = []
 
@@ -36,6 +54,7 @@ final class ControllerMonitor: ObservableObject {
             attach(controller)
         } else {
             controllerName = nil
+            input = ControllerInputSnapshot()
             lastInput = "No controller connected"
         }
     }
@@ -44,12 +63,32 @@ final class ControllerMonitor: ObservableObject {
         controllerName = controller.vendorName ?? "Game Controller"
         guard let pad = controller.extendedGamepad else {
             lastInput = "Connected — standard gamepad profile unavailable"
+            input = ControllerInputSnapshot()
             return
         }
 
         pad.valueChangedHandler = { [weak self] _, element in
+            let snapshot = ControllerInputSnapshot(
+                leftX: pad.leftThumbstick.xAxis.value,
+                leftY: pad.leftThumbstick.yAxis.value,
+                rightX: pad.rightThumbstick.xAxis.value,
+                rightY: pad.rightThumbstick.yAxis.value,
+                leftTrigger: pad.leftTrigger.value,
+                rightTrigger: pad.rightTrigger.value,
+                buttonA: pad.buttonA.isPressed,
+                buttonB: pad.buttonB.isPressed,
+                buttonX: pad.buttonX.isPressed,
+                buttonY: pad.buttonY.isPressed,
+                leftShoulder: pad.leftShoulder.isPressed,
+                rightShoulder: pad.rightShoulder.isPressed,
+                dpadX: pad.dpad.xAxis.value,
+                dpadY: pad.dpad.yAxis.value
+            )
             let description = element.localizedName ?? "Gamepad"
-            Task { @MainActor in self?.lastInput = "Input detected: \(description)" }
+            Task { @MainActor in
+                self?.input = snapshot
+                self?.lastInput = "Input detected: \(description)"
+            }
         }
     }
 }
