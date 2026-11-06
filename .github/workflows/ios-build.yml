@@ -36,6 +36,8 @@ jobs:
         run: bash ios/scripts/run-pad-mapper-smoke-test.sh
       - name: Run PS3 pad C bridge smoke test
         run: bash ios/scripts/run-pad-bridge-smoke-test.sh
+      - name: Run PS3 audio C bridge smoke test
+        run: bash ios/scripts/run-audio-bridge-smoke-test.sh
 
   build-ios-shell:
     runs-on: macos-26-intel
@@ -76,6 +78,13 @@ jobs:
             -I"$PS3/include" -I"$PS3/libs/input" -I"$PS3/runtime" \
             -I"$PS3/runtime/ppu" -I"$PS3/runtime/platform" \
             "$PS3/libs/input/cellPad.c"
+          xcrun --sdk iphoneos clang -fsyntax-only -std=c17 \
+            -DPS3RECOMP_AUDIO_IOS_NATIVE=1 \
+            -target arm64-apple-ios16.0 -isysroot "$SDK" \
+            -I"$PS3/include" -I"$PS3/libs/audio" -I"$PS3/runtime" \
+            -I"$PS3/runtime/ppu" -I"$PS3/runtime/memory" \
+            -I"$PS3/runtime/syscalls" \
+            "$PS3/libs/audio/cellAudio.c"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Run ISO reader smoke test
