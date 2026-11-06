@@ -4,6 +4,32 @@
 #include <cstdint>
 #include <cstring>
 
+typedef void (*ps3_guest_caller_fn)(uint32_t opd_addr,
+                                    uint64_t arg0, uint64_t arg1,
+                                    uint64_t arg2, uint64_t arg3,
+                                    uint64_t arg4, uint64_t arg5,
+                                    uint64_t arg6, uint64_t arg7);
+extern "C" {
+ps3_guest_caller_fn g_ps3_guest_caller = nullptr;
+}
+
+static uint32_t g_guest_opd;
+static uint64_t g_guest_args[8];
+static unsigned g_guest_call_count;
+
+extern "C" uint64_t ppu_guest_call(uint32_t opd_addr,
+                                    uint64_t arg0, uint64_t arg1,
+                                    uint64_t arg2, uint64_t arg3,
+                                    uint64_t arg4, uint64_t arg5,
+                                    uint64_t arg6, uint64_t arg7)
+{
+    g_guest_opd = opd_addr;
+    const uint64_t args[8] = {arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7};
+    std::memcpy(g_guest_args, args, sizeof(args));
+    ++g_guest_call_count;
+    return 0x1234u;
+}
+
 static bool g_memory_ready = false;
 static unsigned g_load_calls = 0;
 static unsigned g_recomp_register_calls = 0;
@@ -42,12 +68,18 @@ int main()
     assert(soulbrandt_ppu_host_is_ready() == 1);
     assert(soulbrandt_ppu_host_function_count() == 42);
     assert(soulbrandt_ppu_host_hle_count() == 84);
+    assert(g_ps3_guest_caller != nullptr);
+    g_ps3_guest_caller(0xABCDEF00u, 1, 2, 3, 4, 5, 6, 7, 8);
+    assert(g_guest_call_count == 1 && g_guest_opd == 0xABCDEF00u);
+    for (unsigned i = 0; i < 8; ++i) assert(g_guest_args[i] == i + 1);
     assert(soulbrandt_ppu_host_load_elf("/different/EBOOT.ELF") == 0x1000u);
     assert(g_load_calls == 1);
 
     soulbrandt_ppu_host_reset_image();
     assert(soulbrandt_ppu_host_is_ready() == 0);
+    assert(g_ps3_guest_caller == nullptr);
     assert(soulbrandt_ppu_host_load_elf("/disc/EBOOT.ELF") == 0x2000u);
+    assert(g_ps3_guest_caller != nullptr);
     assert(g_load_calls == 2);
 
     // Process-wide registration tables must not be duplicated on restart.
@@ -57,5 +89,6 @@ int main()
     assert(g_fs_register_calls == 1);
     assert(g_syscall_init_calls == 1);
     soulbrandt_ppu_host_reset_image();
+    assert(g_ps3_guest_caller == nullptr);
     return 0;
 }
