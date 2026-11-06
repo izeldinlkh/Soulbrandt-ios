@@ -33,11 +33,19 @@ targets:
           - $(inherited)
           - $(SRCROOT)/ThirdParty/libudfread/src
           - $(SRCROOT)/build/ps3recomp-runtime/include
+        LIBRARY_SEARCH_PATHS:
+          - $(inherited)
+          - $(SRCROOT)/build/ps3recomp-runtime
+        OTHER_LDFLAGS:
+          - $(inherited)
+          - -lps3recomp_runtime
+          - -lc++
         GCC_PREPROCESSOR_DEFINITIONS:
           - $(inherited)
           - HAVE_UNISTD_H=1
           - HAVE_FCNTL_H=1
           - HAVE_PTHREAD_H=1
+          - SOULBRANDT_LINKED_RENDER_RUNTIME=1
     dependencies:
       - sdk: Metal.framework
       - sdk: QuartzCore.framework
