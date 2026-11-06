@@ -66,7 +66,7 @@ struct ContentView: View {
 
                 GroupBox("Metal renderer") {
                     VStack(alignment: .leading, spacing: 8) {
-                        MetalRendererView()
+                        MetalRendererView(rsxBackendReady: rsxBackendReady)
                             .aspectRatio(16.0 / 9.0, contentMode: .fit)
                             .frame(maxWidth: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
