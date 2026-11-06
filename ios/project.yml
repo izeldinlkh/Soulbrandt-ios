@@ -40,7 +40,7 @@ targets:
           - $(SRCROOT)/build/ppu-host-ios
         OTHER_LDFLAGS:
           - $(inherited)
-          - -lSoulbrandtPPUHost
+          - -Wl,-force_load,$(SRCROOT)/build/ppu-host-ios/libSoulbrandtPPUHost.a
           - -lps3recomp_runtime
           - -lc++
         GCC_PREPROCESSOR_DEFINITIONS:

@@ -1,83 +1,85 @@
 # iOS PPU boot integration boundary
 
-This note records the next real boot milestone and prevents the ISO importer from being
-mistaken for a game loader.
+This note records what is genuinely connected and what still blocks a game boot.
 
-## What is already in the iOS target
+## Linked and exercised in the iOS target
 
-- The app copies a user-selected ISO into private storage and can inspect ISO-9660/Joliet
-  or UDF directories.
-- It can extract a decrypted `PS3_GAME/USRDIR/EBOOT.ELF` (or ELF-form `EBOOT.BIN`)
-  without buffering the whole executable.
-- `soulbrandt_guest_load_elf` validates PPC64 big-endian program headers and maps
-  `PT_LOAD` bytes/BSS into the aligned guest address space. It validates the entry point
-  and `PT_TLS` ranges before modifying guest memory.
-- The iOS build compiles the generic ps3recomp runtime and syntax-checks the PPU host
-  scaffold against the iOS SDK.
+- ISO-9660/Joliet and UDF readers, plus chunked extraction of a decrypted
+  `PS3_GAME/USRDIR/EBOOT.ELF` or ELF-form `EBOOT.BIN`.
+- A read-only ISO-backed VFS wired into the patched upstream `ppu_fs.cpp` /
+  `cellFs` path. `/dev_bdvd` resolves to the disc root and `/app_home` resolves
+  to `/PS3_GAME/USRDIR`. Linux smoke tests cover open/read/seek/stat/list and
+  reject traversal outside the image.
+- The upstream PPU host scaffold (`ppu_loader.cpp`, `ppu_hle.cpp`,
+  `ppu_fs.cpp`, `ppu_sysprx.cpp`) and generated HLE NID table, compiled as an
+  iOS ARM64 archive and linked into the app alongside the generic runtime.
+- The app's EBOOT action calls upstream `ppu_load_elf`, then
+  `ppu_recomp_register`, `ppu_hle_init`, `ppu_sysprx_register`,
+  `ppu_fs_register` and `lv2_init_syscalls`.
+- The RSX frame pump starts/stops with the runtime. It drives 59.94 Hz GCM
+  ticks, drains the FIFO every 4 ms, dispatches pending vblank/flip callbacks
+  and presents only at a completed flip boundary. Scheduler and lifecycle
+  smoke tests pass.
+- The guest address-space manager reserves a 4-GiB-aligned virtual region and
+  owns `vm_base`; upstream `ppu_loader` owns `ppu_vm_size`.
 
-None of those steps executes a PPU instruction.
+These are host and loader milestones, **not proof that the game boots**.
 
-## The missing PPU execution link
+## The missing game execution link
 
-ps3recomp is a **static recompiler**, not an interpreter. Its documented path is:
+ps3recomp is a **static recompiler**, not a general PPU interpreter. Its
+supported game pipeline generates native C/C++ from the matching retail EBOOT.
+Those generated translation units and their function table must be compiled
+into the iOS app (or a separately built compatible native module).
 
-1. Run `tools/ppu_loader.py` on the decrypted retail EBOOT to produce the image,
-   OPD/function and import manifests.
-2. Run `tools/ppu_disasm.py` and `tools/ppu_lifter.py` to generate native C/C++
-   functions and the title's `ppu_recomp.h`.
-3. Compile those generated translation units for arm64 as part of the app build.
-4. Compile/link the PPU scaffold (`runtime/ppu/ppu_loader.cpp`,
-   `ppu_hle.cpp`, `ppu_fs.cpp`, `ppu_sysprx.cpp`) and generated HLE NID table.
-5. Register the generated function table, initialize HLE modules, load the ELF and
-   enter it through `ppu_run`.
+The current IPA deliberately supplies an empty `function_table` so the PPU
+host can be linked before the game-specific lift exists. Therefore the app
+does not call `ppu_run` and executes no guest PPU instructions. Copying ELF
+segments into RAM is not equivalent to executing them.
 
-An arbitrary ISO selected inside the app cannot become executable merely because its ELF
-segments were copied into RAM. With the current static-recomp architecture, the matching
-lift must already have been generated and compiled into the IPA (or supplied as a separately
-built, compatible native module). Runtime generation/JIT is not part of this port.
+## Game-specific inputs and build constraints
 
-## Two loader paths must not be conflated
+The existing desktop setup targets the US BLUS30443 v1.00 dump and expects 28
+decrypted game/firmware inputs. The iOS importer currently extracts the EBOOT
+but does not run the complete title-specific lift pipeline, compile its
+generated units for arm64, or package all required inputs. An arbitrary ISO
+selected in the app cannot become a runnable game by itself; runtime JIT is
+not part of this port.
 
-The current small C ELF loader is useful for validating and mapping a file. The upstream
-PPU runtime loader is the one that must own a real boot: it captures `PT_TLS` metadata,
-sets up the main thread's TLS image/`r13`, resolves the entry OPD, installs the PPU
-thread trampoline, and dispatches `ppu_run`. The Swift status line saying “ELF loaded”
-therefore means **segments mapped only**, not that the PPU runtime is initialized.
+Next, the build needs a reproducible arm64 lift pipeline that consumes the
+matching user-owned EBOOT and produces:
+- the generated PPU function table and native translation units;
+- the title-specific registration/override code;
+- the SPU workload table and SPURS integration;
+- the required decrypted firmware/PRX inputs, including the supported
+  `libsre.prx` variant.
 
-Do not wire `soulbrandt_guest_load_elf` directly to a pretend `ppu_run` call. First link
-the upstream PPU scaffold and generated lift, then route boot through its loader so TLS,
-OPD, HLE and thread setup stay consistent.
+## VFS and storage boundary
 
-## VFS is a separate boot requirement
-
-The current `ppu_fs.cpp` host implementation expects a directory tree on the host file
-system. The app currently retains the disc as one ISO/UDF image. A bootable iOS path must
-provide cellFs access to files inside that image (random-access open/read/seek/stat and
-directory enumeration), or deliberately extract the required disc tree. Copying only
-EBOOT.ELF is not enough: the game loads archives, shaders, configuration and other assets
-from `/dev_bdvd`.
-
-A virtual disc VFS is preferable to duplicating a multi-gigabyte image as loose files, but
-it must be wired into cellFs before game boot is claimed.
+The disc VFS is read-only. It supports the runtime's disc-file path and
+directory operations, but does not yet provide writable `/dev_hdd0` or
+`/dev_hdd1` storage overlays. Save data, caches and other writes therefore
+remain blocked. The path mapping still needs validation against the exact
+target disc image.
 
 ## Renderer boundary
 
-The upstream Metal RSX backend is compiled and can own the app's `CAMetalLayer`. The iOS
-runtime now starts a 59.94 Hz GCM interrupt clock plus a 4 ms FIFO-drain loop; it dispatches
-pending guest vblank/flip callbacks and presents only after a fully drained flip boundary.
-The scheduler has a Linux smoke test and is wired into runtime prepare/shutdown. The
-animated MTKView triangle remains only a synthetic presentation test. Actual game rendering
-still requires guest PPU code to initialize cellGcm and submit real RSX command buffers.
-No synthetic triangle, empty FIFO drain, or successful backend initialization counts as a
-game frame.
+The RSX Metal backend is linked to the app's `CAMetalLayer`. The frame pump
+advances the GCM clock, drains the FIFO and presents completed flips. The
+animated MTKView triangle remains only a synthetic presentation test. A real
+game frame requires guest PPU code to initialize cellGcm and submit real RSX
+commands; no empty FIFO drain or successful backend initialization counts as
+game rendering.
 
 ## Ordered next milestones
 
-1. Build a reproducible arm64 lift pipeline for the supported Demon's Souls retail EBOOT.
-2. Link the PPU scaffold, generated function table and HLE NID registrations into the app.
-3. Add an ISO-backed cellFs VFS and prove random-access reads against a real disc image.
-4. Route boot through upstream `ppu_load_elf` / `ppu_run` and prove the first guest
-   instructions execute on device.
-5. Bring up the existing SPURS/SPU work required by the title.
-6. Connect guest cellGcm submissions to the Metal RSX backend; only then measure real
-   frame pacing and optimize the iPhone 14 target.
+1. Validate the VFS against the supported BLUS30443 image and add writable
+   HDD overlays for save/cache paths.
+2. Build a reproducible arm64 PPU-lift pipeline for the exact supported EBOOT
+   and package the resulting game function table/native units into the IPA.
+3. Load the required game/firmware PRX modules and complete HLE registration.
+4. Set up the guest main thread's TLS, OPD and stack correctly, then dispatch
+   through upstream `ppu_run` and prove the first guest instructions execute.
+5. Bring up the title's SPU workloads and SPURS scheduler.
+6. Validate real guest GCM submissions, Metal presentation, audio and saves;
+   then profile CPU/GPU frame time, memory and thermal behaviour on iPhone 14.
