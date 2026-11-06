@@ -5,7 +5,11 @@ struct ContentView: View {
     @StateObject private var controller = ControllerMonitor()
     @State private var showingImporter = false
     @State private var importedISOName: String?
+    @State private var volumeSummary: String?
     @State private var importError: String?
+    @State private var isImporting = false
+
+    private let savedISOKey = "Soulbrandt.importedISOName"
 
     var body: some View {
         NavigationStack {
@@ -20,6 +24,11 @@ struct ContentView: View {
                         if let importedISOName {
                             Label(importedISOName, systemImage: "opticaldisc")
                                 .lineLimit(2)
+                            if let volumeSummary {
+                                Text(volumeSummary)
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
                         } else {
                             Text("No ISO imported")
                                 .foregroundStyle(.secondary)
@@ -28,11 +37,16 @@ struct ContentView: View {
                         Button {
                             showingImporter = true
                         } label: {
-                            Label("Import decrypted ISO", systemImage: "folder")
+                            if isImporting {
+                                Label("Importing…", systemImage: "hourglass")
+                            } else {
+                                Label("Import decrypted ISO", systemImage: "folder")
+                            }
                         }
                         .buttonStyle(.borderedProminent)
+                        .disabled(isImporting)
 
-                        Text("The ISO is copied into this app’s private storage. This prototype does not boot the game yet.")
+                        Text("Import stores the image in this app’s private storage. The current build can inspect supported ISO-9660/Joliet images, but cannot boot the game.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -67,7 +81,20 @@ struct ContentView: View {
                 allowsMultipleSelection: false,
                 onCompletion: handleImport
             )
+            .task(perform: restoreImportedImage)
         }
+    }
+
+    private func restoreImportedImage() {
+        guard let name = UserDefaults.standard.string(forKey: savedISOKey) else { return }
+        let directory = gameImagesDirectory()
+        let url = directory.appendingPathComponent(name)
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            UserDefaults.standard.removeObject(forKey: savedISOKey)
+            return
+        }
+        importedISOName = name
+        volumeSummary = "Stored in app storage. Re-import to inspect the disc."
     }
 
     private func handleImport(_ result: Result<[URL], Error>) {
@@ -78,34 +105,79 @@ struct ContentView: View {
             }
 
             let hasAccess = source.startAccessingSecurityScopedResource()
-            defer {
-                if hasAccess { source.stopAccessingSecurityScopedResource() }
-            }
+            guard hasAccess else { throw ImportFailure.accessDenied }
 
-            let fileManager = FileManager.default
-            let gameImages = fileManager.urls(
-                for: .applicationSupportDirectory, in: .userDomainMask
-            )[0].appendingPathComponent("GameImages", isDirectory: true)
-            try fileManager.createDirectory(at: gameImages, withIntermediateDirectories: true)
-
-            let destination = gameImages.appendingPathComponent(source.lastPathComponent)
-            if fileManager.fileExists(atPath: destination.path) {
-                try fileManager.removeItem(at: destination)
-            }
-
-            try fileManager.copyItem(at: source, to: destination)
-            importedISOName = source.lastPathComponent
+            isImporting = true
             importError = nil
+
+            Task {
+                defer {
+                    source.stopAccessingSecurityScopedResource()
+                    isImporting = false
+                }
+                do {
+                    let outcome = try await Task.detached(priority: .userInitiated) {
+                        try Self.copyAndInspectISO(source: source)
+                    }.value
+                    importedISOName = outcome.name
+                    volumeSummary = outcome.summary
+                    UserDefaults.standard.set(outcome.name, forKey: savedISOKey)
+                } catch {
+                    importError = "Import failed: \(error.localizedDescription)"
+                }
+            }
         } catch {
             importError = "Import failed: \(error.localizedDescription)"
         }
+    }
+
+    private func gameImagesDirectory() -> URL {
+        FileManager.default.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        )[0].appendingPathComponent("GameImages", isDirectory: true)
+    }
+
+    private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String) {
+        let fileManager = FileManager.default
+        let support = fileManager.urls(
+            for: .applicationSupportDirectory, in: .userDomainMask
+        )[0]
+        let directory = support.appendingPathComponent("GameImages", isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        let destination = directory.appendingPathComponent(source.lastPathComponent)
+        let temporary = directory.appendingPathComponent(UUID().uuidString + ".partial")
+        defer { try? fileManager.removeItem(at: temporary) }
+
+        try fileManager.copyItem(at: source, to: temporary)
+        let reader = try ISO9660Reader(url: temporary)
+        let rootEntries = try reader.list()
+        let hasPS3Game = rootEntries.contains {
+            $0.isDirectory && $0.name.caseInsensitiveCompare("PS3_GAME") == .orderedSame
+        }
+        if fileManager.fileExists(atPath: destination.path) {
+            try fileManager.removeItem(at: destination)
+        }
+        try fileManager.moveItem(at: temporary, to: destination)
+
+        let size = (try? fileManager.attributesOfItem(atPath: destination.path)[.size] as? NSNumber)?.int64Value ?? 0
+        let sizeText = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
+        let discText = hasPS3Game
+            ? "PS3_GAME directory found"
+            : "ISO opened, but PS3_GAME was not found in the root"
+        let fsText = reader.isJoliet ? "Joliet filesystem" : "ISO-9660 filesystem"
+        return (source.lastPathComponent, "\(sizeText) • \(fsText) • \(discText)")
     }
 }
 
 private enum ImportFailure: LocalizedError {
     case notISO
+    case accessDenied
 
     var errorDescription: String? {
-        "Please select a file with the .iso extension."
+        switch self {
+        case .notISO: return "Please select a file with the .iso extension."
+        case .accessDenied: return "iOS did not grant access to the selected file."
+        }
     }
 }
