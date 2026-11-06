@@ -220,6 +220,14 @@ struct ContentView: View {
         }
         importedISOName = name
         volumeSummary = UserDefaults.standard.string(forKey: savedSummaryKey) ?? "Stored in app storage."
+        do {
+            let reader: any DiscImageFileSystem
+            do { reader = try UDFReader(url: url) }
+            catch { reader = try ISO9660Reader(url: url) }
+            PS3DiscVFS.shared.mount(reader)
+        } catch {
+            PS3DiscVFS.shared.unmount()
+        }
         let eboot = gameImagesDirectory().appendingPathComponent(PS3BootImageStore.outputName)
         if UserDefaults.standard.string(forKey: savedEbootISOKey) == name,
            FileManager.default.fileExists(atPath: eboot.path) {
@@ -385,6 +393,7 @@ struct ContentView: View {
         var summary = "Imported. Disc filesystem could not be read."
         var ebootURL: URL?
         var ebootStatus = "EBOOT extraction was not attempted."
+        var mountedReader: (any DiscImageFileSystem)?
         do {
             let reader: any DiscImageFileSystem
             do {
@@ -393,6 +402,7 @@ struct ContentView: View {
             } catch {
                 reader = try ISO9660Reader(url: temporary)
             }
+            mountedReader = reader
             summary = try Self.inspectDisc(reader)
             do {
                 ebootURL = try PS3BootImageStore.extract(from: reader, into: directory)
@@ -417,6 +427,8 @@ struct ContentView: View {
         guard renameResult == 0 else {
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
+        if let mountedReader { PS3DiscVFS.shared.mount(mountedReader) }
+        else { PS3DiscVFS.shared.unmount() }
 
         let attributes = try fileManager.attributesOfItem(atPath: destination.path)
         let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
