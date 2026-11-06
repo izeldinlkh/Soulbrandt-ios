@@ -48,21 +48,7 @@ final class ControllerMonitor: ObservableObject {
         }
 
         pad.valueChangedHandler = { [weak self] _, element in
-            let description: String
-            switch element {
-            case pad.buttonA: description = "A"
-            case pad.buttonB: description = "B"
-            case pad.buttonX: description = "X"
-            case pad.buttonY: description = "Y"
-            case pad.leftShoulder: description = "L1"
-            case pad.rightShoulder: description = "R1"
-            case pad.leftTrigger: description = "L2"
-            case pad.rightTrigger: description = "R2"
-            case pad.leftThumbstick: description = "Left stick"
-            case pad.rightThumbstick: description = "Right stick"
-            case pad.dpad: description = "D-pad"
-            default: description = "Gamepad"
-            }
+            let description = element.localizedName ?? "Gamepad"
             Task { @MainActor in self?.lastInput = "Input detected: \(description)" }
         }
     }
