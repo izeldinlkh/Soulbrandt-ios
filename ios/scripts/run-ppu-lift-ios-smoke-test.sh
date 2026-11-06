@@ -13,6 +13,12 @@ printf '%s\n' 'extern "C" int fixture_spu_registration(void) { return 1; }' > "$
 cat > "$TMP/recompiled/ppu_recomp.h" <<'EOF'
 #include "ps3emu/ppu_lift.h"
 EOF
+# The desktop lift emits this all-module NID registration unit. iOS builds it
+# separately in the PPU-host archive, so the game-lift builder must omit it.
+cat > "$TMP/recompiled/hle_nid_table.cpp" <<'EOF'
+extern "C" void ppu_hle_register_all(void) {}
+EOF
+
 cat > "$TMP/recompiled/fixture.cpp" <<'EOF'
 #include "ppu_recomp.h"
 
@@ -33,6 +39,10 @@ grep -Fqx 'game_lift=1' "$TMP/lift-build/lift-status.txt"
 grep -Fqx 'ppu_sources=1' "$TMP/lift-build/lift-status.txt"
 grep -Fqx 'spu_sources=3' "$TMP/lift-build/lift-status.txt"
 test -s "$TMP/lift-build/libSoulbrandtGameLift.a"
+if /usr/bin/nm -g "$TMP/lift-build/libSoulbrandtGameLift.a" | grep -q 'ppu_hle_register_all'; then
+  echo "game-lift archive duplicated the PPU-host HLE NID registration unit" >&2
+  exit 1
+fi
 
 bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
   "$PS3_ROOT" "$TMP/no-lift" "$TMP/no-spu" "$TMP/no-lift-build"
