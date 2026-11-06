@@ -500,9 +500,19 @@ static FILE* ps3_disc_fopen(const char* path)
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
-        '''    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
+        '''static void cellFsOpen(ppu_context* ctx)
+{
+    char gpath[1024], hpath[1100];
+    guest_strcpy(gpath, (uint32_t)ctx->gpr[3], sizeof gpath);
+    uint32_t flags  = (uint32_t)ctx->gpr[4];
+    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
     host_path(hpath, sizeof hpath, gpath);''',
-        '''    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
+        '''static void cellFsOpen(ppu_context* ctx)
+{
+    char gpath[1024], hpath[1100];
+    guest_strcpy(gpath, (uint32_t)ctx->gpr[3], sizeof gpath);
+    uint32_t flags  = (uint32_t)ctx->gpr[4];
+    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
 #if defined(__APPLE__)
     if (ps3_is_disc_path(gpath)) {
         uint64_t ignored_size = 0; uint8_t is_directory = 0;
