@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var rsxBackendStatus = "RSX backend not initialized"
     @State private var ebootStatus = "No decrypted EBOOT extracted"
     @State private var extractedEbootURL: URL?
+    @State private var extractedParamsfoURL: URL?
     @State private var canBootGame = false
     @State private var ppuBootStatus = "Game execution not started"
 
@@ -176,10 +177,21 @@ struct ContentView: View {
 
     private func loadExtractedEboot() {
         guard let url = extractedEbootURL, rsxBackendReady else { return }
+        guard let paramsfoURL = extractedParamsfoURL else {
+            ebootStatus = "Cannot load EBOOT: PARAM.SFO was not extracted"
+            return
+        }
         do {
             try PS3StorageOverlay.configure()
         } catch {
             ebootStatus = "Could not prepare save/cache storage: \(error.localizedDescription)"
+            return
+        }
+        let metadataResult = paramsfoURL.path.withCString {
+            soulbrandt_ppu_host_init_title_metadata($0)
+        }
+        guard metadataResult == 0 else {
+            ebootStatus = "Could not initialize title metadata from PARAM.SFO (\(metadataResult))"
             return
         }
         let entry = url.path.withCString { soulbrandt_ppu_host_load_elf($0) }
@@ -259,6 +271,11 @@ struct ContentView: View {
             PS3DiscVFS.shared.unmount()
         }
         let eboot = gameImagesDirectory().appendingPathComponent(PS3BootImageStore.outputName)
+        let paramsfo = gameImagesDirectory().appendingPathComponent(PS3BootImageStore.paramsfoOutputName)
+        if UserDefaults.standard.string(forKey: savedEbootISOKey) == name,
+           FileManager.default.fileExists(atPath: paramsfo.path) {
+            extractedParamsfoURL = paramsfo
+        }
         if UserDefaults.standard.string(forKey: savedEbootISOKey) == name,
            FileManager.default.fileExists(atPath: eboot.path) {
             extractedEbootURL = eboot
@@ -311,6 +328,7 @@ struct ContentView: View {
                     importedISOName = outcome.name
                     volumeSummary = outcome.summary
                     extractedEbootURL = outcome.ebootURL
+                    extractedParamsfoURL = outcome.paramsfoURL
                     ebootStatus = outcome.ebootStatus
                     if outcome.ebootURL != nil {
                         UserDefaults.standard.set(outcome.name, forKey: savedEbootISOKey)
@@ -378,7 +396,7 @@ struct ContentView: View {
         return summary
     }
 
-    nonisolated private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String, ebootURL: URL?, ebootStatus: String) {
+    nonisolated private static func copyAndInspectISO(source: URL) throws -> (name: String, summary: String, ebootURL: URL?, paramsfoURL: URL?, ebootStatus: String) {
         let fileManager = FileManager.default
         let support = fileManager.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
@@ -434,6 +452,7 @@ struct ContentView: View {
 
         var summary = "Imported. Disc filesystem could not be read."
         var ebootURL: URL?
+        var paramsfoURL: URL?
         var ebootStatus = "EBOOT extraction was not attempted."
         var mountedReader: (any DiscImageFileSystem)?
         do {
@@ -446,6 +465,13 @@ struct ContentView: View {
             }
             mountedReader = reader
             summary = try Self.inspectDisc(reader)
+            let oldParamsfo = directory.appendingPathComponent(PS3BootImageStore.paramsfoOutputName)
+            try? fileManager.removeItem(at: oldParamsfo)
+            do {
+                paramsfoURL = try PS3BootImageStore.extractParamsfo(from: reader, into: directory)
+            } catch {
+                ebootStatus = "PARAM.SFO: \(error.localizedDescription)"
+            }
             do {
                 ebootURL = try PS3BootImageStore.extract(from: reader, into: directory)
                 let attrs = try fileManager.attributesOfItem(atPath: ebootURL!.path)
@@ -475,7 +501,7 @@ struct ContentView: View {
         let attributes = try fileManager.attributesOfItem(atPath: destination.path)
         let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
         let sizeText = ByteCountFormatter.string(fromByteCount: size, countStyle: .file)
-        return (source.lastPathComponent, "\(sizeText) • \(summary)", ebootURL, ebootStatus)
+        return (source.lastPathComponent, "\(sizeText) • \(summary)", ebootURL, paramsfoURL, ebootStatus)
     }
 }
 
