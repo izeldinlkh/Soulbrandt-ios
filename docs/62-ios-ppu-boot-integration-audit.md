@@ -4,12 +4,15 @@ This note records what the first ARM64 PPU-host archive actually proves and the 
 
 ## Verified in CI
 
-Workflow run [42295164427](https://github.com/izeldinlkh/Soulbrandt-ios/actions/runs/42295164427) completed successfully on 2026-11-06:
+Workflow run [42299051612](https://github.com/izeldinlkh/Soulbrandt-ios/actions/runs/42299051612) completed successfully on 2026-11-06:
 - The pinned upstream ppu_loader.cpp, ppu_hle.cpp, ppu_fs.cpp, and ppu_sysprx.cpp compile for arm64-apple-ios16.0.
 - The generated all-module ppu_hle_nids.cpp compiles for the same target.
 - Those objects archive into libSoulbrandtPPUHost.a.
 - The generic ps3recomp_runtime archive and unsigned iOS app/IPA also build.
-- The PPU host archive is now linked into the iOS app target, with a no-game fallback function table so the shell can link before title-derived code exists. No guest code runs yet.
+- The PPU host archive is linked into the iOS app target, with a no-game fallback function table so the shell can link before title-derived code exists. The fallback registers zero lifted functions; no game code runs yet.
+- The upstream PPU ELF loader now delegates PT_LOAD/PT_TLS parsing and memory writes to the app's validated guest ELF loader. It rejects malformed program-header tables and segment ranges instead of skipping bad segments and returning a misleading entry point.
+- The PPU host bridge installs and resets the upstream guest-callback dispatcher around image lifetime, and its lifecycle is covered by a Linux smoke test.
+- Persistent /dev_hdd0 and /dev_hdd1 roots are configured in the app's Application Support directory before HLE initialization. The disc image remains read-only.
 
 ## What the host archive depends on
 
@@ -44,7 +47,7 @@ The existing PS3BootImageStore provides the extracted EBOOT path to the PPU ELF 
 - Compile all generated PPU chunks for ARM64 and resolve title-specific overrides/hooks.
 - Generate and compile the title SPU image/job workloads; connect SPURS registration and dispatch.
 - Add an iOS boot coordinator that owns the ordered initialization/teardown above.
-- Link the host archive and generated title objects into the app; verify no unresolved host symbols.
+- Generate the title-specific PPU lift and function_table for the supported game revision, then statically compile and link those generated sources into the app; the current fallback has zero functions.
 - Route real guest RSX commands through the existing Metal backend and prove the first game frame.
 - Complete PS3 HDD filesystem semantics (including unlink/rmdir) and validate saves/caches against the target image.
 - Profile memory, thermal load and frame pacing on the target iPhone before making any FPS claim.
