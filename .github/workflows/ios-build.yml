@@ -22,6 +22,8 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode.app
       - name: Install XcodeGen
         run: brew install xcodegen
+      - name: Run ISO reader smoke test
+        run: bash ios/scripts/run-iso-smoke-test.sh
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate
