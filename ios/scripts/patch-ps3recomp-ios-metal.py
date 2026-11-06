@@ -122,7 +122,122 @@ int  rsx_metal_backend_init(u32 width, u32 height, const char* title);""",
     spvc_compiler_options_set_uint(opt, SPVC_COMPILER_OPTION_MSL_PLATFORM, SPVC_MSL_PLATFORM_MACOS);
 #endif""",
     )
-    print("ps3recomp iOS Metal layer patch applied (or was already present)")
+    replace_once(
+        root, "libs/input/cellPad.c",
+        """#if defined(PS3RECOMP_PAD_USE_SDL2)
+  #define PAD_BACKEND_SDL2  1
+  #define PAD_BACKEND_XINPUT 0
+#elif defined(_WIN32)
+  #define PAD_BACKEND_SDL2  0
+  #define PAD_BACKEND_XINPUT 1
+#else
+  #define PAD_BACKEND_SDL2  1
+  #define PAD_BACKEND_XINPUT 0
+#endif""",
+        """#if defined(PS3RECOMP_PAD_IOS_NATIVE)
+  #define PAD_BACKEND_IOS_NATIVE 1
+  #define PAD_BACKEND_SDL2  0
+  #define PAD_BACKEND_XINPUT 0
+#elif defined(PS3RECOMP_PAD_USE_SDL2)
+  #define PAD_BACKEND_IOS_NATIVE 0
+  #define PAD_BACKEND_SDL2  1
+  #define PAD_BACKEND_XINPUT 0
+#elif defined(_WIN32)
+  #define PAD_BACKEND_IOS_NATIVE 0
+  #define PAD_BACKEND_SDL2  0
+  #define PAD_BACKEND_XINPUT 1
+#else
+  #define PAD_BACKEND_IOS_NATIVE 0
+  #define PAD_BACKEND_SDL2  1
+  #define PAD_BACKEND_XINPUT 0
+#endif""",
+    )
+    replace_once(
+        root, "libs/input/cellPad.c",
+        """    hs->press_r1       = (btns & CELL_PAD_CTRL_R1)       ? 255 : 0;
+}""",
+        """    hs->press_r1       = (btns & CELL_PAD_CTRL_R1)       ? 255 : 0;
+}
+
+#if PAD_BACKEND_IOS_NATIVE
+typedef struct SoulbrandtPadState {
+    uint16_t buttons;
+    uint8_t left_x, left_y, right_x, right_y;
+    uint8_t analog_l2, analog_r2;
+} SoulbrandtPadState;
+extern void soulbrandt_pad_state_read(SoulbrandtPadState* out_state);
+
+/* GameController is sampled by Swift. This poll copies its latest PS3-format
+ * packet into cellPad's normal host state, so the existing guest API remains
+ * unchanged and no SDL controller enumeration runs on iOS. */
+static void pad_poll_ios_native(void)
+{
+    SoulbrandtPadState state = { 0, 128, 128, 128, 128, 0, 0 };
+    soulbrandt_pad_state_read(&state);
+    for (int i = 0; i < PAD_MAX_HOST_PORTS; i++) {
+        PadHostState* hs = &s_host_state[i];
+        memset(hs, 0, sizeof *hs);
+        hs->connected = i == 0;
+        hs->analog_lx = hs->analog_ly = hs->analog_rx = hs->analog_ry = 128;
+        s_poll_dev[i] = RUMBLE_NONE;
+        if (i == 0) {
+            hs->buttons = state.buttons;
+            hs->analog_lx = state.left_x;
+            hs->analog_ly = state.left_y;
+            hs->analog_rx = state.right_x;
+            hs->analog_ry = state.right_y;
+            hs->trigger_l2 = state.analog_l2;
+            hs->trigger_r2 = state.analog_r2;
+            pad_press_from_buttons(hs);
+        }
+    }
+} 
+#endif""",
+    )
+    replace_once(
+        root, "libs/input/cellPad.c",
+        """#if PAD_BACKEND_XINPUT
+    pad_poll_xinput();
+    pad_poll_hid();
+#elif PAD_BACKEND_SDL2
+    pad_poll_sdl2();
+#endif
+    pad_apply_controller();
+    pad_publish_devices();
+    pad_apply_map();   /* the pads only: the keyboard has its own keys */
+#if PAD_BACKEND_XINPUT || PAD_BACKEND_SDL2
+    pad_poll_keyboard();
+#endif""",
+        """#if PAD_BACKEND_IOS_NATIVE
+    pad_poll_ios_native();
+    pad_publish_devices();
+#else
+#if PAD_BACKEND_XINPUT
+    pad_poll_xinput();
+    pad_poll_hid();
+#elif PAD_BACKEND_SDL2
+    pad_poll_sdl2();
+#endif
+    pad_apply_controller();
+    pad_publish_devices();
+    pad_apply_map();   /* the pads only: the keyboard has its own keys */
+#if PAD_BACKEND_XINPUT || PAD_BACKEND_SDL2
+    pad_poll_keyboard();
+#endif
+#endif""",
+    )
+    replace_once(
+        root, "CMakeLists.txt",
+        """    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        target_link_libraries(ps3recomp_runtime PUBLIC "-framework AppKit")
+    endif()""",
+        """    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        target_link_libraries(ps3recomp_runtime PUBLIC "-framework AppKit")
+    else()
+        target_compile_definitions(ps3recomp_runtime PRIVATE PS3RECOMP_PAD_IOS_NATIVE=1)
+    endif()""",
+    )
+    print("ps3recomp iOS Metal layer and native cellPad patches applied (or were already present)")
 
 
 if __name__ == "__main__":
