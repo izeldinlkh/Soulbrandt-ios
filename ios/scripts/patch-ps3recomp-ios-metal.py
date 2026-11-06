@@ -262,9 +262,9 @@ static SDL_AudioDeviceID s_sdl_audio_dev = 0;""",
     else()
         message(FATAL_ERROR
             "SDL2 not found. It provides the cellPad and cellAudio backends on "
-            "non-Windows hosts.\\n"
-            "  macOS:  brew install sdl2\\n"
-            "  Debian: apt install libsdl2-dev\\n"
+            "non-Windows hosts.\n"
+            "  macOS:  brew install sdl2\n"
+            "  Debian: apt install libsdl2-dev\n"
             "If SDL2 is installed in a non-standard prefix, pass "
             "-DCMAKE_PREFIX_PATH=<prefix>.")
     endif()
@@ -288,9 +288,9 @@ static SDL_AudioDeviceID s_sdl_audio_dev = 0;""",
         else()
             message(FATAL_ERROR
                 "SDL2 not found. It provides the cellPad and cellAudio backends on "
-                "non-Windows hosts.\\n"
-                "  macOS:  brew install sdl2\\n"
-                "  Debian: apt install libsdl2-dev\\n"
+                "non-Windows hosts.\n"
+                "  macOS:  brew install sdl2\n"
+                "  Debian: apt install libsdl2-dev\n"
                 "If SDL2 is installed in a non-standard prefix, pass "
                 "-DCMAKE_PREFIX_PATH=<prefix>.")
         endif()
