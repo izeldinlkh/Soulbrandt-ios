@@ -33,9 +33,9 @@ final class ISO9660Reader {
     private static let sectorSize: UInt64 = 2048
     private let handle: FileHandle
     private let imageSize: UInt64
-    private let volumeSize: UInt64
-    private let root: Entry
-    private let usesJoliet: Bool
+    private var volumeSize: UInt64 = 0
+    private var root: Entry?
+    private var usesJoliet = false
     private let ioLock = NSLock()
 
     init(url: URL) throws {
@@ -72,11 +72,15 @@ final class ISO9660Reader {
             if type == 1 { primary = (rootEntry, sectors) } else { joliet = (rootEntry, sectors) }
         }
         guard foundTerminator else { throw ISOError.unsupportedVolume }
-        if let joliet { root = joliet.0; volumeSize = joliet.1 * Self.sectorSize; usesJoliet = true }
-        else if let primary { root = primary.0; volumeSize = primary.1 * Self.sectorSize; usesJoliet = false }
+        let selected: (Entry, UInt64, Bool)
+        if let joliet { selected = (joliet.0, joliet.1, true) }
+        else if let primary { selected = (primary.0, primary.1, false) }
         else { throw ISOError.unsupportedVolume }
+        volumeSize = selected.1 * Self.sectorSize
+        root = selected.0
+        usesJoliet = selected.2
         guard volumeSize > 0, volumeSize <= imageSize else { throw ISOError.invalidImage }
-        try validate(entry: root)
+        try validate(entry: selected.0)
     }
 
     deinit { try? handle.close() }
@@ -103,7 +107,7 @@ final class ISO9660Reader {
     }
 
     private func resolve(_ path: String) throws -> Entry {
-        var current = root
+        guard var current = root else { throw ISOError.invalidImage }
         for component in path.split(separator: "/").map(String.init) where component != "." && !component.isEmpty {
             guard component != ".." else { throw ISOError.notFound(path) }
             let children = try readDirectory(current)
