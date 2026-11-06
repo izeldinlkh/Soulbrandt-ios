@@ -64,9 +64,9 @@ private struct MetalRenderSurface: UIViewRepresentable {
 
         let runtimeResult = soulbrandt_runtime_prepare()
         if runtimeResult == 0 {
-            statusChanged("\(device.name) • RSX layer attached • cellPad HLE ready")
+            statusChanged("\(device.name) • RSX Metal backend initialized • cellPad HLE ready")
         } else {
-            statusChanged("\(device.name) • Metal layer ready • runtime prepare failed (\(runtimeResult))")
+            statusChanged("\(device.name) • Metal layer ready • RSX runtime initialization failed (\(runtimeResult))")
         }
         return view
     }
