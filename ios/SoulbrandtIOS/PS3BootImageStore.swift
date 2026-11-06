@@ -104,7 +104,7 @@ enum PS3BootImageStore {
             !$0.isDirectory && $0.name.caseInsensitiveCompare("PARAM.SFO") == .orderedSame
         }) else { throw ExtractionError.paramsfoMissing }
 
-        let sourcePath = "/PS3_GAME/\\(entry.name)"
+        let sourcePath = "/PS3_GAME/\(entry.name)"
         let size = try reader.fileSize(path: sourcePath)
         guard size >= 0x14, size <= 1024 * 1024 else {
             throw ExtractionError.invalidParamsfo
