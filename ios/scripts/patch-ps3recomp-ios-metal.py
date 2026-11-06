@@ -194,7 +194,11 @@ static void pad_poll_ios_native(void)
             pad_press_from_buttons(hs);
         }
     }
-} 
+}
+
+/* Native iOS input is fed by GameController; no SDL/XInput lifecycle exists. */
+static void pad_init_backend(void) {}
+static void pad_shutdown_backend(void) {}
 #endif""",
     )
     replace_once(
