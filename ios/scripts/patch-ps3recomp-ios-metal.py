@@ -127,6 +127,45 @@ int  rsx_metal_backend_init(u32 width, u32 height, const char* title);""",
 #endif""",
     )
     replace_once(
+        root, "runtime/platform/win32_compat.c",
+        """#  include <mach/mach.h>
+#  include <mach/mach_vm.h>""",
+        """#  include <TargetConditionals.h>
+#  include <mach/mach.h>
+#  if TARGET_OS_IPHONE
+#    include <mach/vm_map.h>
+#  else
+#    include <mach/mach_vm.h>
+#  endif""",
+    )
+    replace_once(
+        root, "runtime/platform/win32_compat.c",
+        """    mach_vm_address_t a = (mach_vm_address_t)addr;
+    mach_vm_size_t    sz = 0;
+    vm_region_basic_info_data_64_t info;
+    mach_msg_type_number_t cnt = VM_REGION_BASIC_INFO_COUNT_64;
+    mach_port_t name = MACH_PORT_NULL;
+    kern_return_t kr = mach_vm_region(mach_task_self(), &a, &sz, VM_REGION_BASIC_INFO_64,
+                                      (vm_region_info_t)&info, &cnt, &name);""",
+        """#if TARGET_OS_IPHONE
+    vm_address_t a = (vm_address_t)addr;
+    vm_size_t    sz = 0;
+#else
+    mach_vm_address_t a = (mach_vm_address_t)addr;
+    mach_vm_size_t    sz = 0;
+#endif
+    vm_region_basic_info_data_64_t info;
+    mach_msg_type_number_t cnt = VM_REGION_BASIC_INFO_COUNT_64;
+    mach_port_t name = MACH_PORT_NULL;
+#if TARGET_OS_IPHONE
+    kern_return_t kr = vm_region_64(mach_task_self(), &a, &sz, VM_REGION_BASIC_INFO_64,
+                                    (vm_region_info_t)&info, &cnt, &name);
+#else
+    kern_return_t kr = mach_vm_region(mach_task_self(), &a, &sz, VM_REGION_BASIC_INFO_64,
+                                      (vm_region_info_t)&info, &cnt, &name);
+#endif""",
+    )
+    replace_once(
         root, "libs/audio/cellAudio.c",
         """#if defined(PS3RECOMP_AUDIO_USE_SDL2)
   #define AUDIO_BACKEND_SDL2    1
@@ -380,7 +419,7 @@ static void pad_shutdown_backend(void) {}
 #endif
 #endif""",
     )
-    print("ps3recomp iOS Metal, native cellPad and AVAudioEngine patches applied (or were already present)")
+    print("ps3recomp iOS Metal, Mach VM, native cellPad and AVAudioEngine patches applied (or were already present)")
 
 
 if __name__ == "__main__":
