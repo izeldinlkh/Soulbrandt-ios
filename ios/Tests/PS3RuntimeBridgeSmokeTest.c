@@ -12,6 +12,9 @@ static int s_rsx_init_calls, s_rsx_shutdown_calls, s_pad_init_calls;
 static int s_pad_end_calls, s_pad_poll_calls, s_layer_set_calls;
 static int s_pump_start_result;
 static int s_pump_start_calls, s_pump_stop_calls;
+static int s_ppu_reset_calls;
+
+void soulbrandt_ppu_host_reset_image(void) { s_ppu_reset_calls++; }
 
 int32_t soulbrandt_rsx_frame_pump_start(void)
 {
@@ -71,6 +74,7 @@ int main(void)
     assert(!soulbrandt_runtime_is_ready());
     assert(s_pad_end_calls == 1 && s_rsx_shutdown_calls == 1);
     assert(s_pump_stop_calls == 1);
+    assert(s_ppu_reset_calls == 1);
     assert(!soulbrandt_guest_memory_is_ready());
     assert(s_layer == NULL);
 
@@ -111,6 +115,7 @@ int main(void)
     soulbrandt_runtime_shutdown();
     assert(!soulbrandt_runtime_is_ready());
     assert(s_pump_stop_calls == 2);
+    assert(s_ppu_reset_calls == 2);
 
     puts("PS3 runtime bridge lifecycle smoke test passed");
     return 0;
