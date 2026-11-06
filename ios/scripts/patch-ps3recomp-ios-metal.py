@@ -13,6 +13,8 @@ cmake_path = root / "CMakeLists.txt"
 
 def replace_once(path: Path, old: str, new: str) -> None:
     content = path.read_text()
+    if new in content:
+        return
     count = content.count(old)
     if count != 1:
         raise SystemExit(f"{path}: expected one patch anchor, found {count}: {old[:90]!r}")
@@ -81,4 +83,14 @@ replace_once(cmake_path,
              '    if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")\n'
              '        target_link_libraries(ps3recomp_runtime PUBLIC "-framework AppKit")\n'
              '    endif()\n')
-print("iOS CAMetalLayer patch applied to pinned ps3recomp source")
+shader_path = root / "libs/video/rsx_shader_msl.cpp"
+replace_once(shader_path, '#include <spirv_cross_c.h>\n',
+             '#include <spirv_cross_c.h>\n#include <TargetConditionals.h>\n')
+replace_once(shader_path,
+             '    spvc_compiler_options_set_uint(opt, SPVC_COMPILER_OPTION_MSL_PLATFORM, SPVC_MSL_PLATFORM_MACOS);',
+             '#if TARGET_OS_IPHONE\n'
+             '    spvc_compiler_options_set_uint(opt, SPVC_COMPILER_OPTION_MSL_PLATFORM, SPVC_MSL_PLATFORM_IOS);\n'
+             '#else\n'
+             '    spvc_compiler_options_set_uint(opt, SPVC_COMPILER_OPTION_MSL_PLATFORM, SPVC_MSL_PLATFORM_MACOS);\n'
+             '#endif')
+print("iOS CAMetalLayer and iOS shader-target patches applied to pinned ps3recomp source")
