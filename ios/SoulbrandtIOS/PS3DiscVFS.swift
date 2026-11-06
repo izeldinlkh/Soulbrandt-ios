@@ -31,11 +31,12 @@ final class PS3DiscVFS {
     private func normalizedPath(_ input: String) -> String? {
         guard !input.isEmpty, !input.utf8.contains(0) else { return nil }
         var path = input.replacingOccurrences(of: "\\", with: "/")
-        if path == "/dev_bdvd" || path == "/app_home" { return "/" }
+        if path == "/dev_bdvd" { return "/" }
+        if path == "/app_home" { return "/PS3_GAME/USRDIR" }
         if path.hasPrefix("/dev_bdvd/") {
             path.removeFirst("/dev_bdvd".count)
         } else if path.hasPrefix("/app_home/") {
-            path.removeFirst("/app_home".count)
+            path = "/PS3_GAME/USRDIR" + path.dropFirst("/app_home".count)
         }
         guard path.hasPrefix("/") else { return nil }
         var components: [String] = []
