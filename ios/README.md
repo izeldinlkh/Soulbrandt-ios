@@ -10,18 +10,20 @@ This directory contains a native iOS shell and early disc-inspection code. It is
 - Import is retained even when the image uses a filesystem the prototype cannot parse.
 - GameController framework discovery, Extended Gamepad monitoring, and a native CELL_PAD-compatible state bridge.
 - Read-only UDF-first, then ISO-9660/Joliet directory and file access, with bounded random-access reads. UDF is provided by the LGPL-2.1 libudfread submodule.
-- A native MetalKit diagnostic render loop with live FPS/GPU diagnostics; Metal 4 capability detection on iOS 26+.
-- Synthetic ISO and controller bridge smoke tests run by CI.
+- A native MetalKit diagnostic render loop with live FPS/GPU diagnostics. It uses an MTL4 command queue with three in-flight allocator slots on supported iOS 26+ devices, and falls back to the compatible Metal command-queue path.
+- A lock-free stereo float ring between the PS3 mixer and an AVAudioSourceNode; the AVAudioEngine is deliberately dormant until the game runtime starts.
+- CI smoke tests for ISO/UDF, controller mapping, the controller C bridge and the audio C bridge. The pinned RSX Metal backend, iOS cellPad adapter and iOS cellAudio adapter are also syntax-checked against the iOS SDK.
 
 ## Known limitations
 
 - No PS3 boot or integration with ps3recomp's cellFs VFS.
-- The MetalKit triangle is only a GPU bring-up test. It currently submits through the compatible `MTLCommandQueue` path; Metal 4 is detected but its `MTL4CommandQueue` submission path is not yet wired.
+- The MetalKit triangle is only a GPU bring-up test. Its Metal 4 submission path is not yet the game's RSX renderer; the patched PS3 RSX backend still needs to be linked and connected to the app's CAMetalLayer.
 - ISO-9660 reader does not support multi-extent files, interleaved files, or Rock Ridge extensions. UDF images are handled by libudfread; validation against the target BLUS30443 disc image is still pending.
 - The importer inspects the EBOOT header (ELF, likely SELF, or unknown), but an ELF header alone does not prove the full executable or the other required game/firmware files are decrypted and suitable for recompilation.
 - The desktop setup currently expects the supported US BLUS30443 v1.00 dump plus 28 decrypted game/firmware files; importing a single ISO does not satisfy that build pipeline.
-- Controller state is mapped into a CELL_PAD-shaped bridge, but no running game consumes it yet.
-- The iOS target does not yet build the PPU/SPU runtime or connect the RSX backend, audio mixer, save system, or game loop.
+- Swift GameController state is translated into PS3 pad bytes. The pinned runtime patch adds a native cellPad backend that reads this bridge, but the runtime is not linked into the app yet.
+- The pinned runtime patch also adds an AVAudioEngine-backed cellAudio output and skips SDL2 on iOS. Its C adapter is compile-checked, but the runtime mixer is not linked to the app yet.
+- The iOS target still does not build the PPU/SPU runtime or connect the RSX backend, save system, or game loop.
 
 ## Generate and build on macOS
 
@@ -41,9 +43,9 @@ A signed, installable IPA additionally requires Apple signing assets (a developm
 
 1. Build and validate the native shell on a real iPhone.
 2. Implement UDF and the exact disc/VFS behavior needed by the supported Demon's Souls dump, then extract/validate the full set of inputs required by the existing recompilation pipeline.
-3. Build the pinned ps3recomp runtime for iOS, replacing desktop SDL input/audio dependencies with GameController and AVAudioEngine adapters.
-4. Adapt the existing Objective-C Metal RSX backend: its iOS compile path currently forces headless/offscreen rendering, so it must accept and present through the app's CAMetalLayer/MTKView drawable.
-5. Connect the generated PPU/SPU game code and cellFs VFS, then bring up RSX guest shaders and render targets. Adopt MTL4 command submission where it measurably helps, retaining the compatible Metal path as fallback.
+3. Build the pinned ps3recomp runtime for iOS. The patch now provides native GameController and AVAudioEngine backends and removes the runtime's SDL2 requirement on iOS.
+4. Link the runtime and connect its patched Objective-C Metal RSX backend to the app's CAMetalLayer. The diagnostic view already exposes a layer handoff; startup must call the backend's setter before RSX initialization.
+5. Connect the generated PPU/SPU game code and cellFs VFS, then validate guest shader translation, render targets, audio and saves. The diagnostic surface uses MTL4; migrate the actual RSX submission path after the legacy Metal path is running and can be profiled.
 6. Profile CPU/GPU frame time, memory and thermal behaviour on the A15 before targeting 30/60 FPS.
 
 The existing desktop CMake target is not an iOS target. Its SDL2, Vulkan/vkd3d, and Win32 assumptions cannot simply be linked into this app.
