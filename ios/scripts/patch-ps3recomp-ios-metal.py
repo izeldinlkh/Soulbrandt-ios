@@ -506,6 +506,25 @@ static FILE* ps3_disc_fopen(const char* path)
     guest_strcpy(gpath, (uint32_t)ctx->gpr[3], sizeof gpath);
     uint32_t flags  = (uint32_t)ctx->gpr[4];
     uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
+#if defined(__APPLE__)
+    if (ps3_is_disc_path(gpath)) {
+        uint64_t ignored_size = 0; uint8_t is_directory = 0;
+        if (soulbrandt_disc_vfs_stat(gpath, &ignored_size, &is_directory) == 0 && is_directory) {
+            ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EISDIR; return;
+        }
+        if ((flags & 0x3u) != CELL_FS_O_RDONLY) {
+            ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return;
+        }
+        FILE* disc_file = ps3_disc_fopen(gpath);
+        if (!disc_file) { ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_ENOENT; return; }
+        int disc_fd = fd_alloc_file(disc_file);
+        if (disc_fd < 0) { fclose(disc_file); ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return; }
+        if (fd_ptr) vm_write32(fd_ptr, (uint32_t)disc_fd);
+        strncpy(g_fd_path[disc_fd], gpath, sizeof g_fd_path[disc_fd] - 1);
+        ctx->gpr[3] = CELL_OK;
+        return;
+    }
+#endif
     host_path(hpath, sizeof hpath, gpath);''',
         '''static void cellFsOpen(ppu_context* ctx)
 {
