@@ -85,6 +85,15 @@ jobs:
             -I"$PS3/runtime/ppu" -I"$PS3/runtime/memory" \
             -I"$PS3/runtime/syscalls" \
             "$PS3/libs/audio/cellAudio.c"
+          xcrun --sdk iphoneos clang -fsyntax-only -std=c17 \
+            -target arm64-apple-ios16.0 -isysroot "$SDK" \
+            -I"$PS3/include" -I"$PS3/libs/system" -I"$PS3/libs/filesystem" \
+            -I"$PS3/libs/input" -I"$PS3/libs/audio" -I"$PS3/libs/video" \
+            -I"$PS3/libs/network" -I"$PS3/libs/spurs" -I"$PS3/libs/sync" \
+            -I"$PS3/libs/codec" -I"$PS3/libs/font" -I"$PS3/libs/misc" \
+            -I"$PS3/runtime" -I"$PS3/runtime/platform" -I"$PS3/runtime/spu" \
+            -I"$PS3/third_party/mbedtls/include" \
+            "$PS3/runtime/platform/win32_compat.c"
       - name: Install XcodeGen and CMake tools
         run: brew install xcodegen cmake ninja
       - name: Build patched ps3recomp runtime for iOS
