@@ -1,5 +1,6 @@
 #include "PS3RuntimeBridge.h"
 #include "PS3PadBridge.h"
+#include <stddef.h>
 
 static int s_runtime_pad_ready;
 static int s_runtime_rsx_ready;
