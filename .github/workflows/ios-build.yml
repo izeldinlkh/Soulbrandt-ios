@@ -85,8 +85,28 @@ jobs:
             -I"$PS3/runtime/ppu" -I"$PS3/runtime/memory" \
             -I"$PS3/runtime/syscalls" \
             "$PS3/libs/audio/cellAudio.c"
-      - name: Install XcodeGen
-        run: brew install xcodegen
+      - name: Install XcodeGen and CMake tools
+        run: brew install xcodegen cmake ninja
+      - name: Build patched ps3recomp runtime for iOS
+        run: |
+          PS3="$RUNNER_TEMP/ps3recomp"
+          BUILD="$RUNNER_TEMP/ps3recomp-ios-build"
+          SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+          cmake -S "$PS3" -B "$BUILD" -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_SYSROOT="$SDK" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
+            -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+            -DCMAKE_C_COMPILER="$(xcrun -f clang)" \
+            -DCMAKE_CXX_COMPILER="$(xcrun -f clang++)" \
+            -DCMAKE_OBJC_COMPILER="$(xcrun -f clang)" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPS3RECOMP_BUILD_TESTS=OFF \
+            -DPS3RECOMP_RSX_HAL=OFF \
+            -DPS3RECOMP_FFMPEG_RUNTIME=OFF
+          cmake --build "$BUILD" --target ps3recomp_runtime --parallel 2
+          find "$BUILD" -name 'libps3recomp_runtime.a' -type f -size +0c -print -quit | grep -q .
       - name: Run ISO reader smoke test
         run: bash ios/scripts/run-iso-smoke-test.sh
       - name: Generate Xcode project
