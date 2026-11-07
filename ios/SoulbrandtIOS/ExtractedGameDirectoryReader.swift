@@ -36,7 +36,8 @@ final class ExtractedGameDirectoryReader: DiscImageFileSystem {
         var gameIsDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: candidate.path, isDirectory: &gameIsDirectory),
               gameIsDirectory.boolValue else { throw ReaderError.missingGameDirectory }
-        root = candidate.lastPathComponent.caseInsensitiveCompare("PS3_GAME") == .orderedSame\n            ? candidate.deletingLastPathComponent().standardizedFileURL\n            : candidate.deletingLastPathComponent().standardizedFileURL
+        // Keep the disc root as the VFS root so callers use /PS3_GAME/...
+        root = candidate.deletingLastPathComponent().standardizedFileURL
     }
 
     private func resolve(_ input: String) throws -> URL {
@@ -65,7 +66,6 @@ final class ExtractedGameDirectoryReader: DiscImageFileSystem {
             includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
             options: [.skipsHiddenFiles]).compactMap { item in
                 let values = try item.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-                // Never follow symlinks from imported game content.
                 guard values.isSymbolicLink != true else { return nil }
                 return DiscImageEntry(name: item.lastPathComponent,
                                       isDirectory: values.isDirectory == true)
@@ -87,7 +87,6 @@ final class ExtractedGameDirectoryReader: DiscImageFileSystem {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
         try handle.seek(toOffset: offset)
-        let data = try handle.read(upToCount: length) ?? Data()
-        return data
+        return try handle.read(upToCount: length) ?? Data()
     }
 }
