@@ -364,9 +364,11 @@ struct ContentView: View {
     private func handleImport(_ result: Result<[URL], Error>) {
         do {
             guard let source = try result.get().first else { return }
+            let probeHasSecurityScope = source.startAccessingSecurityScopedResource()
             var isDirectory: ObjCBool = false
-            if FileManager.default.fileExists(atPath: source.path, isDirectory: &isDirectory),
-               isDirectory.boolValue {
+            let sourceExists = FileManager.default.fileExists(atPath: source.path, isDirectory: &isDirectory)
+            if probeHasSecurityScope { source.stopAccessingSecurityScopedResource() }
+            if sourceExists && isDirectory.boolValue {
                 handleFolderImport(.success([source]))
                 return
             }
