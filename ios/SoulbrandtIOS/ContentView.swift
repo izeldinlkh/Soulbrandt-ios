@@ -446,14 +446,22 @@ struct ContentView: View {
         let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let directory = support.appendingPathComponent("GameImages", isDirectory: true)
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
-        let selectedIsGame = source.lastPathComponent.caseInsensitiveCompare("PS3_GAME") == .orderedSame
-        let name = selectedIsGame ? "PS3_GAME" : "ExtractedGame"
+        let name = "ExtractedGame"
         let destination = directory.appendingPathComponent(name, isDirectory: true)
         let temporary = directory.appendingPathComponent(UUID().uuidString + ".partial", isDirectory: true)
         defer { try? fm.removeItem(at: temporary) }
-        try fm.copyItem(at: source, to: temporary)
+        try fm.createDirectory(at: temporary, withIntermediateDirectories: true)
+        if source.lastPathComponent.caseInsensitiveCompare("PS3_GAME") == .orderedSame {
+            try fm.copyItem(at: source, to: temporary.appendingPathComponent("PS3_GAME", isDirectory: true))
+        } else {
+            try fm.copyItem(at: source, to: temporary.appendingPathComponent("SelectedGame", isDirectory: true))
+        }
         let reader = try ExtractedGameDirectoryReader(url: temporary)
         let summary = try Self.inspectDisc(reader)
+        let oldEboot = directory.appendingPathComponent(PS3BootImageStore.outputName)
+        let oldParamsfo = directory.appendingPathComponent(PS3BootImageStore.paramsfoOutputName)
+        try? fm.removeItem(at: oldEboot)
+        try? fm.removeItem(at: oldParamsfo)
         let paramsfo = try? PS3BootImageStore.extractParamsfo(from: reader, into: directory)
         var eboot: URL?
         var status = "EBOOT extraction was not attempted."
