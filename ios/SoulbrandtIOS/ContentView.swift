@@ -5,8 +5,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @StateObject private var controller = ControllerMonitor()
     @State private var showingImporter = false
-    @State private var showingFolderImporter = false
-    @State private var importedISOName: String?
+        @State private var importedISOName: String?
     @State private var volumeSummary: String?
     @State private var importError: String?
     @State private var isImporting = false
@@ -58,7 +57,7 @@ struct ContentView: View {
                         .buttonStyle(.borderedProminent)
                         .disabled(isImporting)
                         Button {
-                            showingFolderImporter = true
+                            showingImporter = true
                         } label: {
                             Label("Import extracted game folder", systemImage: "folder.badge.plus")
                         }
@@ -169,15 +168,9 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .fileImporter(
                 isPresented: $showingImporter,
-                allowedContentTypes: [.data],
+                allowedContentTypes: [.data, .folder],
                 allowsMultipleSelection: false,
                 onCompletion: handleImport
-            )
-            .fileImporter(
-                isPresented: $showingFolderImporter,
-                allowedContentTypes: [.folder],
-                allowsMultipleSelection: false,
-                onCompletion: handleFolderImport
             )
             .task {
                 restoreImportedImage()
@@ -371,6 +364,12 @@ struct ContentView: View {
     private func handleImport(_ result: Result<[URL], Error>) {
         do {
             guard let source = try result.get().first else { return }
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: source.path, isDirectory: &isDirectory),
+               isDirectory.boolValue {
+                handleFolderImport(.success([source]))
+                return
+            }
             guard source.pathExtension.lowercased() == "iso" else {
                 throw ImportFailure.notISO
             }
