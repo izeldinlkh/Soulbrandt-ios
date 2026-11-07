@@ -450,11 +450,11 @@ struct ContentView: View {
         let destination = directory.appendingPathComponent(name, isDirectory: true)
         let temporary = directory.appendingPathComponent(UUID().uuidString + ".partial", isDirectory: true)
         defer { try? fm.removeItem(at: temporary) }
-        try fm.createDirectory(at: temporary, withIntermediateDirectories: true)
         if source.lastPathComponent.caseInsensitiveCompare("PS3_GAME") == .orderedSame {
+            try fm.createDirectory(at: temporary, withIntermediateDirectories: true)
             try fm.copyItem(at: source, to: temporary.appendingPathComponent("PS3_GAME", isDirectory: true))
         } else {
-            try fm.copyItem(at: source, to: temporary.appendingPathComponent("SelectedGame", isDirectory: true))
+            try fm.copyItem(at: source, to: temporary)
         }
         let reader = try ExtractedGameDirectoryReader(url: temporary)
         let summary = try Self.inspectDisc(reader)
