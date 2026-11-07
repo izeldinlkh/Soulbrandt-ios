@@ -65,7 +65,7 @@ struct ContentView: View {
                         .buttonStyle(.bordered)
                         .disabled(isImporting)
 
-                        Text("Import stores the image in this app’s private storage. It can inspect ISO-9660/Joliet and UDF images, but does not decrypt game files or boot the game.")
+                        Text("Import copies the ISO or extracted PS3_GAME folder into this app’s private storage. Encrypted SELF files still need to be decrypted before title lifting.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                         if isImporting {
@@ -421,6 +421,7 @@ struct ContentView: View {
                         UserDefaults.standard.removeObject(forKey: savedEbootISOKey)
                     }
                     UserDefaults.standard.set(outcome.name, forKey: savedISOKey)
+                    UserDefaults.standard.removeObject(forKey: savedFolderKey)
                     UserDefaults.standard.set(outcome.summary, forKey: savedSummaryKey)
                 } catch {
                     importError = "Import failed: \(error.localizedDescription)"
