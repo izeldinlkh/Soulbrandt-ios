@@ -44,6 +44,21 @@ for tool in "$PS3_ROOT/tools/ppu_loader.py" "$PS3_ROOT/tools/ppu_lifter.py" \
 done
 [[ -s "$EBOOT" ]] || { echo "EBOOT is missing or empty: $EBOOT" >&2; exit 1; }
 
+# These title-specific overrides are address-based. Refuse a different executable revision.
+EXPECTED_EBOOT_ELF_SHA256="90eaa5e9e48b4874292badc311ccea253e6a622ff188bfbdbe76e6f6821269d8"
+if command -v shasum >/dev/null 2>&1; then
+  ACTUAL_EBOOT_SHA256="$(shasum -a 256 "$EBOOT" | awk '{print $1}')"
+elif command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL_EBOOT_SHA256="$(sha256sum "$EBOOT" | awk '{print $1}')"
+else
+  echo "Cannot verify EBOOT: shasum/sha256sum unavailable." >&2; exit 1
+fi
+if [[ "$ACTUAL_EBOOT_SHA256" != "$EXPECTED_EBOOT_ELF_SHA256" ]]; then
+  echo "EBOOT hash mismatch: expected BLUS30443 v1.00 decrypted ELF." >&2
+  echo "Expected: $EXPECTED_EBOOT_ELF_SHA256" >&2
+  echo "Actual:   $ACTUAL_EBOOT_SHA256" >&2
+  exit 1
+fi
 python3 - "$EBOOT" <<'PY'
 import pathlib, sys
 p = pathlib.Path(sys.argv[1])
