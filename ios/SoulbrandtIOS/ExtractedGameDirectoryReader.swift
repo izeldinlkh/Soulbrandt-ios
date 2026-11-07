@@ -37,7 +37,7 @@ final class ExtractedGameDirectoryReader: DiscImageFileSystem {
         guard FileManager.default.fileExists(atPath: candidate.path, isDirectory: &gameIsDirectory),
               gameIsDirectory.boolValue else { throw ReaderError.missingGameDirectory }
         // Keep the disc root as the VFS root so callers use /PS3_GAME/...
-        root = candidate.deletingLastPathComponent().standardizedFileURL
+        root = candidate.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath()
     }
 
     private func resolve(_ input: String) throws -> URL {
@@ -47,12 +47,19 @@ final class ExtractedGameDirectoryReader: DiscImageFileSystem {
         guard !components.contains(".."), !components.contains(":") else {
             throw ReaderError.invalidPath
         }
-        let url = components.reduce(root) { $0.appendingPathComponent(String($1)) }.standardizedFileURL
+        let lexicalURL = components.reduce(root) { $0.appendingPathComponent(String($1)) }.standardizedFileURL
         let prefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
-        guard url.path == root.path || url.path.hasPrefix(prefix) else {
+        guard lexicalURL.path == root.path || lexicalURL.path.hasPrefix(prefix) else {
             throw ReaderError.invalidPath
         }
-        return url
+
+        // Standardizing alone does not stop a path from escaping through a
+        // symlinked directory (for example PS3_GAME/USRDIR -> outside root).
+        let resolvedURL = lexicalURL.resolvingSymlinksInPath()
+        guard resolvedURL.path == root.path || resolvedURL.path.hasPrefix(prefix) else {
+            throw ReaderError.invalidPath
+        }
+        return resolvedURL
     }
 
     func entries(path: String) throws -> [DiscImageEntry] {
