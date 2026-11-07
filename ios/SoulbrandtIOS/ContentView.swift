@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @StateObject private var controller = ControllerMonitor()
     @State private var showingImporter = false
+    @State private var showingFolderImporter = false
     @State private var importedISOName: String?
     @State private var volumeSummary: String?
     @State private var importError: String?
@@ -20,6 +21,7 @@ struct ContentView: View {
     private let savedISOKey = "Soulbrandt.importedISOName"
     private let savedSummaryKey = "Soulbrandt.importedISOSummary"
     private let savedEbootISOKey = "Soulbrandt.extractedEbootISOName"
+    private let savedFolderKey = "Soulbrandt.importedFolderName"
 
     var body: some View {
         NavigationStack {
@@ -40,7 +42,7 @@ struct ContentView: View {
                                     .foregroundStyle(.secondary)
                             }
                         } else {
-                            Text("No ISO imported")
+                            Text("No game imported")
                                 .foregroundStyle(.secondary)
                         }
 
@@ -54,6 +56,13 @@ struct ContentView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                        .disabled(isImporting)
+                        Button {
+                            showingFolderImporter = true
+                        } label: {
+                            Label("Import extracted game folder", systemImage: "folder.badge.plus")
+                        }
+                        .buttonStyle(.bordered)
                         .disabled(isImporting)
 
                         Text("Import stores the image in this app’s private storage. It can inspect ISO-9660/Joliet and UDF images, but does not decrypt game files or boot the game.")
@@ -164,6 +173,12 @@ struct ContentView: View {
                 allowsMultipleSelection: false,
                 onCompletion: handleImport
             )
+            .fileImporter(
+                isPresented: $showingFolderImporter,
+                allowedContentTypes: [.folder],
+                allowsMultipleSelection: false,
+                onCompletion: handleFolderImport
+            )
             .task {
                 restoreImportedImage()
             }
@@ -257,6 +272,29 @@ struct ContentView: View {
     }
 
     private func restoreImportedImage() {
+        if let folderName = UserDefaults.standard.string(forKey: savedFolderKey) {
+            let folderURL = gameImagesDirectory().appendingPathComponent(folderName, isDirectory: true)
+            if FileManager.default.fileExists(atPath: folderURL.path) {
+                do {
+                    let reader = try ExtractedGameDirectoryReader(url: folderURL)
+                    PS3DiscVFS.shared.mount(reader)
+                    importedISOName = folderName
+                    volumeSummary = "Extracted PS3 folder • mounted"
+                    let eboot = gameImagesDirectory().appendingPathComponent(PS3BootImageStore.outputName)
+                    let paramsfo = gameImagesDirectory().appendingPathComponent(PS3BootImageStore.paramsfoOutputName)
+                    if FileManager.default.fileExists(atPath: paramsfo.path) { extractedParamsfoURL = paramsfo }
+                    if FileManager.default.fileExists(atPath: eboot.path) {
+                        extractedEbootURL = eboot
+                        ebootStatus = "EBOOT extracted from game folder • ready to load"
+                    }
+                    return
+                } catch {
+                    UserDefaults.standard.removeObject(forKey: savedFolderKey)
+                }
+            } else {
+                UserDefaults.standard.removeObject(forKey: savedFolderKey)
+            }
+        }
         guard let name = UserDefaults.standard.string(forKey: savedISOKey) else { return }
         let directory = gameImagesDirectory()
         let url = directory.appendingPathComponent(name)
@@ -284,6 +322,49 @@ struct ContentView: View {
            FileManager.default.fileExists(atPath: eboot.path) {
             extractedEbootURL = eboot
             ebootStatus = "Decrypted EBOOT extracted • ready to load"
+        }
+    }
+
+    private func handleFolderImport(_ result: Result<[URL], Error>) {
+        do {
+            guard let source = try result.get().first else { return }
+            let hasSecurityScope = source.startAccessingSecurityScopedResource()
+            let isReadable = FileManager.default.isReadableFile(atPath: source.path)
+            guard hasSecurityScope || isReadable else { throw ImportFailure.accessDenied }
+            guard soulbrandt_ppu_host_is_running() == 0 else {
+                if hasSecurityScope { source.stopAccessingSecurityScopedResource() }
+                importError = "Cannot replace the mounted game while it is executing. Relaunch the app first."
+                return
+            }
+            if rsxBackendReady { stopRSXBackend() }
+            isImporting = true
+            importError = nil
+            canBootGame = false
+            ppuBootStatus = "Game execution not started"
+            Task {
+                defer {
+                    if hasSecurityScope { source.stopAccessingSecurityScopedResource() }
+                    isImporting = false
+                }
+                do {
+                    let outcome = try await Task.detached(priority: .userInitiated) {
+                        try Self.copyAndInspectFolder(source: source)
+                    }.value
+                    importedISOName = outcome.name
+                    volumeSummary = outcome.summary
+                    extractedEbootURL = outcome.ebootURL
+                    extractedParamsfoURL = outcome.paramsfoURL
+                    ebootStatus = outcome.ebootStatus
+                    UserDefaults.standard.set(outcome.name, forKey: savedFolderKey)
+                    UserDefaults.standard.removeObject(forKey: savedISOKey)
+                    UserDefaults.standard.removeObject(forKey: savedEbootISOKey)
+                    UserDefaults.standard.set(outcome.summary, forKey: savedSummaryKey)
+                } catch {
+                    importError = "Folder import failed: \(error.localizedDescription)"
+                }
+            }
+        } catch {
+            importError = "Folder import failed: \(error.localizedDescription)"
         }
     }
 
@@ -354,6 +435,41 @@ struct ContentView: View {
         FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         )[0].appendingPathComponent("GameImages", isDirectory: true)
+    }
+
+    nonisolated private static func copyAndInspectFolder(source: URL) throws -> (name: String, summary: String, ebootURL: URL?, paramsfoURL: URL?, ebootStatus: String) {
+        let fm = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard fm.fileExists(atPath: source.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw ImportFailure.invalidSource
+        }
+        let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let directory = support.appendingPathComponent("GameImages", isDirectory: true)
+        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        let selectedIsGame = source.lastPathComponent.caseInsensitiveCompare("PS3_GAME") == .orderedSame
+        let name = selectedIsGame ? "PS3_GAME" : "ExtractedGame"
+        let destination = directory.appendingPathComponent(name, isDirectory: true)
+        let temporary = directory.appendingPathComponent(UUID().uuidString + ".partial", isDirectory: true)
+        defer { try? fm.removeItem(at: temporary) }
+        try fm.copyItem(at: source, to: temporary)
+        let reader = try ExtractedGameDirectoryReader(url: temporary)
+        let summary = try Self.inspectDisc(reader)
+        let paramsfo = try? PS3BootImageStore.extractParamsfo(from: reader, into: directory)
+        var eboot: URL?
+        var status = "EBOOT extraction was not attempted."
+        do {
+            eboot = try PS3BootImageStore.extract(from: reader, into: directory)
+            let attrs = try fm.attributesOfItem(atPath: eboot!.path)
+            let bytes = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+            status = "Decrypted EBOOT extracted • " + ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        } catch {
+            status = error.localizedDescription
+        }
+        try? fm.removeItem(at: destination)
+        try fm.moveItem(at: temporary, to: destination)
+        let mountedReader = try ExtractedGameDirectoryReader(url: destination)
+        PS3DiscVFS.shared.mount(mountedReader)
+        return (name, summary, eboot, paramsfo, status)
     }
 
     nonisolated private static func inspectDisc(_ reader: any DiscImageFileSystem) throws -> String {
