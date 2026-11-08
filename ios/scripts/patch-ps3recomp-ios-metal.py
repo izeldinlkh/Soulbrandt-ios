@@ -858,9 +858,7 @@ int rsx_metal_backend_init(u32 width, u32 height, const char* title)
         } else {
             rc = create_offscreen();
         }
-#else
-        rc = s_headless ? create_offscreen() : create_window(title);
-#endif""",
+#else""",
     )
     replace_once(
         root, "libs/video/rsx_metal_backend.h",
