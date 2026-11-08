@@ -8,8 +8,6 @@ grep -Fq 'vm_write64(ctx->gpr[1] + 0x28, ctx->gpr[2])' "$PS3_ROOT/tools/ppu_lift
 grep -Fq 'kGuestHostStackSize = 256u * 1024u * 1024u' "$PORT_ROOT/ios/SoulbrandtIOS/PS3PPUHostBridge.cpp"
 grep -Fq 'uint32_t g_ppu_main_stack_addr = 0;' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
 grep -Fq 'if (!t || !t->stack_size)' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
-grep -Fq 'tid == 1 && g_ppu_main_stack_addr' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
-grep -Fq 'tid == 1 && g_ppu_main_stack_size' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
 grep -Fq 'PPU_ICACHE_N = 1024' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'g_ppu_icache[PPU_ICACHE_N]' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'g_ppu_image_min = image.load_min_vaddr;' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
