@@ -194,6 +194,31 @@ def main() -> None:
                 f"    ps3_hle_call(0x{nid:08X}u, ctx); return;  /* import stub */")""",
     )
 
+    # Port the macOS PPU dispatch cache into the iOS runtime. The existing
+    # iOS lean path already bypasses diagnostics when safe; cache only positive
+    # lookups there, so late PRX registrations remain discoverable on misses.
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        """extern "C" void ps3_indirect_call(ppu_context* ctx)
+{
+    if ((g_icall_diag_gen == ps3_env_gen ? g_icall_diag : icall_diag_load()) == 0 && g_icall_lean) {
+        const uint32_t addr = (uint32_t)ctx->ctr;
+        const ppu_fn fn = addr ? ppu_lookup(addr) : nullptr;""",
+        """enum { PPU_ICACHE_N = 1024 };
+static PPU_THREAD_LOCAL struct { uint32_t addr; ppu_fn fn; } g_ppu_icache[PPU_ICACHE_N];
+
+extern "C" void ps3_indirect_call(ppu_context* ctx)
+{
+    if ((g_icall_diag_gen == ps3_env_gen ? g_icall_diag : icall_diag_load()) == 0 && g_icall_lean) {
+        const uint32_t addr = (uint32_t)ctx->ctr;
+        const uint32_t ci = (addr >> 2) & (PPU_ICACHE_N - 1);
+        ppu_fn fn = (addr && g_ppu_icache[ci].addr == addr) ? g_ppu_icache[ci].fn : nullptr;
+        if (!fn && addr) {
+            fn = ppu_lookup(addr);
+            if (fn) { g_ppu_icache[ci].addr = addr; g_ppu_icache[ci].fn = fn; }
+        }""",
+    )
+
     # Ported from demons-souls-recomp's PPU runtime: the main PPU context is
     # registered in the thread table but has no per-thread stack record. Treat
     # that case like the macOS runner and report its explicitly configured
