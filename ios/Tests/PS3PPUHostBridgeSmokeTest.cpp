@@ -120,6 +120,17 @@ int main()
     assert(g_ps3_guest_caller != nullptr);
     assert(g_load_calls == 2);
 
+    // The macOS runner's dedicated 256 MiB host stack and 1 MiB guest stack.
+    assert(soulbrandt_ppu_host_start_game() == 0);
+    for (unsigned i = 0; i < 1000000 &&
+         soulbrandt_ppu_host_run_result() == INT32_MIN; ++i) {
+        std::this_thread::yield();
+    }
+    assert(g_run_called.load(std::memory_order_acquire) == 1);
+    assert(g_run_stack_top == 0x0FF00000u);
+    assert(soulbrandt_ppu_host_run_result() == 0);
+    assert(soulbrandt_ppu_host_is_running() == 0);
+
     // Process-wide registration tables must not be duplicated on restart.
     assert(g_recomp_register_calls == 1);
     assert(g_hle_init_calls == 1);
