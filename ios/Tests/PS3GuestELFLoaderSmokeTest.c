@@ -61,7 +61,9 @@ int main(void)
     if (info.entry_opd != 0x60000100 || info.tls_vaddr != 0x60000100 ||
         info.tls_filesz != 4 || info.tls_memsz != 8 ||
         info.load_segment_count != 1 || info.load_min_vaddr != 0x60000100ULL ||
-        info.load_max_vaddr != 0x60000108ULL) return 4;
+        info.load_max_vaddr != 0x60000108ULL || info.load_range_count != 1 ||
+        info.load_ranges[0].begin != 0x60000100ULL ||
+        info.load_ranges[0].end != 0x60000108ULL) return 4;
     const uint8_t expected[8]={0x12,0x34,0x56,0x78,0,0,0,0};
     if (memcmp(vm_base+0x60000100,expected,sizeof(expected)) != 0) return 5;
 
