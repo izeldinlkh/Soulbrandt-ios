@@ -7,6 +7,7 @@ if [[ $# -lt 2 || $# -gt 4 ]]; then
 fi
 
 PS3_ROOT="$(cd "$1" && pwd)"
+PORT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 RECOMP_DIR="$2"
 SPU_DIR="${3:-$PS3_ROOT/work_spu}"
 OUT="${4:-$PWD/ppu-lift-ios-build}"
@@ -103,6 +104,13 @@ if [[ -f "$RECOMP_DIR/ppu_recomp.h" ]]; then
     echo "ppu_recomp.h exists but no lifted PPU .c/.cpp files were found in $RECOMP_DIR" >&2
     exit 1
   fi
+
+  # The macOS port uses a host setjmp bridge for the guest longjmp.
+  # Compile it into the title archive so its ds_sj_* references resolve.
+  SJLJ_SOURCE="$PORT_ROOT/ios/SoulbrandtIOS/DSGuestSetjmp.cpp"
+  [[ -s "$SJLJ_SOURCE" ]] || { echo "missing macOS-derived PPU setjmp bridge: $SJLJ_SOURCE" >&2; exit 1; }
+  compile_source "$SJLJ_SOURCE" ppu
+  PPU_COUNT=$((PPU_COUNT + 1))
 
   for source in "${PPU_SOURCES[@]}"; do
     compile_source "$source" ppu
