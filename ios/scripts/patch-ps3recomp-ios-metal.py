@@ -257,6 +257,18 @@ int64_t sys_ppu_thread_get_stack_information(ppu_context* ctx)
     }""",
     )
 
+    # A main thread can already have a thread-table entry with a stack record.
+    # The macOS runner's explicit main stack must win for tid 1 in that case too.
+    replace_once(
+        root, "runtime/syscalls/sys_ppu_thread.c",
+        """        uint32_t sa = t->stack_addr;
+        uint32_t ss = t->stack_size;""",
+        """        uint32_t sa = t->stack_addr;
+        uint32_t ss = t->stack_size;
+        if (tid == 1 && g_ppu_main_stack_addr) sa = g_ppu_main_stack_addr;
+        if (tid == 1 && g_ppu_main_stack_size) ss = g_ppu_main_stack_size;""",
+    )
+
     replace_once(
         root, "libs/video/rsx_metal_backend.m",
         "static NSWindow*           s_window;\n",
