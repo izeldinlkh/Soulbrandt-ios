@@ -15,7 +15,10 @@
 #endif
 
 #define SOULBRANDT_VM_SIZE ((uintptr_t)0x100000000ULL)
-#define SOULBRANDT_VM_RESERVE_SIZE (SOULBRANDT_VM_SIZE * 2u)
+#define SOULBRANDT_VM_GUARD_SIZE ((uintptr_t)0x00010000ULL)
+/* Match the macOS runner's 4-GiB guest space plus its 64-KiB tail guard. */
+#define SOULBRANDT_VM_MAPPED_SIZE (SOULBRANDT_VM_SIZE + SOULBRANDT_VM_GUARD_SIZE)
+#define SOULBRANDT_VM_RESERVE_SIZE (SOULBRANDT_VM_SIZE * 2u + SOULBRANDT_VM_GUARD_SIZE)
 
 /* These are the canonical globals consumed by ps3recomp's PPU memory helpers.
  * ppu_vm_size stays zero: with a 4-GiB-aligned base, the runtime uses the full
@@ -42,7 +45,7 @@ int32_t soulbrandt_guest_memory_init(void)
     pthread_mutex_unlock(&s_vm_mutex);
     return -1;
 #else
-    /* Over-map 8 GiB, then trim the prefix and suffix. This guarantees that
+    /* Over-map 8 GiB plus the macOS runner's 64-KiB tail guard, then trim the prefix and suffix. This guarantees that
      * vm_base's low 32 bits are zero instead of relying on mmap's placement. */
     void *raw = mmap(NULL, (size_t)SOULBRANDT_VM_RESERVE_SIZE,
                      PROT_READ | PROT_WRITE,
@@ -56,7 +59,7 @@ int32_t soulbrandt_guest_memory_init(void)
     uintptr_t aligned_addr = (raw_addr + SOULBRANDT_VM_SIZE - 1u)
                            & ~(SOULBRANDT_VM_SIZE - 1u);
     uintptr_t raw_end = raw_addr + SOULBRANDT_VM_RESERVE_SIZE;
-    uintptr_t aligned_end = aligned_addr + SOULBRANDT_VM_SIZE;
+    uintptr_t aligned_end = aligned_addr + SOULBRANDT_VM_MAPPED_SIZE;
 
     if (aligned_addr < raw_addr || aligned_end > raw_end) {
         munmap(raw, (size_t)SOULBRANDT_VM_RESERVE_SIZE);
@@ -72,14 +75,14 @@ int32_t soulbrandt_guest_memory_init(void)
         return -4;
     }
     if (suffix && munmap((void *)aligned_end, suffix) != 0) {
-        munmap((void *)aligned_addr, (size_t)SOULBRANDT_VM_SIZE);
+        munmap((void *)aligned_addr, (size_t)SOULBRANDT_VM_MAPPED_SIZE);
         pthread_mutex_unlock(&s_vm_mutex);
         return -5;
     }
 
     vm_base = (uint8_t *)aligned_addr;
     if (((uintptr_t)vm_base & (SOULBRANDT_VM_SIZE - 1u)) != 0) {
-        munmap(vm_base, (size_t)SOULBRANDT_VM_SIZE);
+        munmap(vm_base, (size_t)SOULBRANDT_VM_MAPPED_SIZE);
         vm_base = NULL;
         pthread_mutex_unlock(&s_vm_mutex);
         return -6;
