@@ -38,6 +38,9 @@ if [[ -z "$PIN" || "$ACTUAL" != "$PIN" ]]; then
   echo "ps3recomp checkout mismatch: expected $PIN, found ${ACTUAL:-not a git checkout}" >&2
   exit 1
 fi
+
+# Apply the iOS host adaptations, including macOS-derived PPU dispatcher fixes.
+python3 "$ROOT/ios/scripts/patch-ps3recomp-ios-metal.py" "$PS3_ROOT"
 for tool in "$PS3_ROOT/tools/ppu_loader.py" "$PS3_ROOT/tools/ppu_lifter.py" \
             "$ROOT/scripts/apply_boot_patches.py" "$ROOT/scripts/build_spu.py"; do
   [[ -f "$tool" ]] || { echo "required tool is missing: $tool" >&2; exit 1; }
@@ -95,6 +98,9 @@ python3 "$PS3_ROOT/tools/ppu_lifter.py" "$EBOOT" \
 
 echo "[title-lift] applying the repository's boot patches"
 python3 "$ROOT/scripts/apply_boot_patches.py" "$RECOMP" --title BLUS30443
+
+# Preserve the macOS runner's guest setjmp/longjmp semantics in lifted PPU code.
+python3 "$ROOT/scripts/apply_macos_ppu_setjmp.py" "$RECOMP"
 
 echo "[title-lift] extracting and lifting SPU images and SPURS jobs"
 python3 "$ROOT/scripts/build_spu.py" --eboot "$EBOOT" \
