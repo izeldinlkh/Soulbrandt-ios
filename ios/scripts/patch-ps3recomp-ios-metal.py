@@ -333,7 +333,7 @@ extern "C" void ps3_indirect_call(ppu_context* ctx)
     # guest stack instead of returning 0+0 to the game.
     replace_once(
         root, "runtime/syscalls/sys_ppu_thread.c",
-        "int64_t sys_ppu_thread_get_stack_information(ppu_context* ctx)\\n{",
+        "int64_t sys_ppu_thread_get_stack_information(ppu_context* ctx)\n{",
         """uint32_t g_ppu_main_stack_addr = 0;
 uint32_t g_ppu_main_stack_size = 0;
 
