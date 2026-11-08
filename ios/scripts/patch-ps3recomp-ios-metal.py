@@ -172,6 +172,28 @@ def main() -> None:
             image.load_segment_count, entry);""",
     )
 
+    # Ported from demons-souls-recomp's PPU lifter patch: a firmware HLE
+    # import stub may begin with "std r2,40(r1)" to preserve the caller's TOC.
+    # Replacing the stub body with ps3_hle_call must retain that save, or the
+    # caller restores an uninitialised TOC after the HLE call.
+    replace_once(
+        root, "tools/ppu_lifter.py",
+        """        nid = self.hle_stub_nids.get(start)
+        if nid is not None:
+            func.body_lines.append(
+                f"    ps3_hle_call(0x{nid:08X}u, ctx); return;  /* import stub */")""",
+        """        nid = self.hle_stub_nids.get(start)
+        if nid is not None:
+            # Match the macOS port: preserve the caller's TOC when the original
+            # import trampoline saves r2 at guest stack offset 0x28.
+            if any(ins.raw == 0xF8410028
+                   for ins in self._range_insns(instructions, start, end)):
+                func.body_lines.append(
+                    "    vm_write64(ctx->gpr[1] + 0x28, ctx->gpr[2]);  /* std r2,40(r1) */")
+            func.body_lines.append(
+                f"    ps3_hle_call(0x{nid:08X}u, ctx); return;  /* import stub */")""",
+    )
+
     replace_once(
         root, "libs/video/rsx_metal_backend.m",
         "static NSWindow*           s_window;\n",
