@@ -57,3 +57,37 @@ do
   echo "[ios-ppu] syntax-checking $source"
   xcrun --sdk iphoneos clang++ "${COMMON[@]}" "$PS3_ROOT/$source"
 done
+
+# The macOS PPU stack-reporting fix lives in the C LV2 syscall layer, and the
+# ELF bounds used by its entry-stack check are produced by the app's C loader.
+C_COMMON=(
+  -fsyntax-only
+  -std=c17
+  -target arm64-apple-ios16.0
+  -isysroot "$SDK"
+  -D_GNU_SOURCE=1
+  -I"$PORT_ROOT/ios/SoulbrandtIOS"
+  -I"$PS3_ROOT/include"
+  -I"$PS3_ROOT/runtime"
+  -I"$PS3_ROOT/runtime/ppu"
+  -I"$PS3_ROOT/runtime/platform"
+  -I"$PS3_ROOT/runtime/memory"
+  -I"$PS3_ROOT/runtime/spu"
+  -I"$PS3_ROOT/runtime/syscalls"
+  -I"$PS3_ROOT/libs/system"
+  -I"$PS3_ROOT/libs/filesystem"
+  -I"$PS3_ROOT/libs/input"
+  -I"$PS3_ROOT/libs/audio"
+  -I"$PS3_ROOT/libs/video"
+  -I"$PS3_ROOT/libs/network"
+  -I"$PS3_ROOT/libs/spurs"
+  -I"$PS3_ROOT/libs/sync"
+  -I"$PS3_ROOT/libs/codec"
+  -I"$PS3_ROOT/libs/font"
+  -I"$PS3_ROOT/libs/misc"
+  -I"$PS3_ROOT/third_party/mbedtls/include"
+)
+for source in runtime/syscalls/sys_ppu_thread.c "$PORT_ROOT/ios/SoulbrandtIOS/PS3GuestMemory.c"; do
+  echo "[ios-ppu] syntax-checking $source"
+  xcrun --sdk iphoneos clang "${C_COMMON[@]}" "$PS3_ROOT/$source"
+done
