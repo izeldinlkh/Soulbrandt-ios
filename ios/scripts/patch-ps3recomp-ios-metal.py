@@ -276,6 +276,49 @@ static FILE* ps3_disc_fopen(const char* path)
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
+        '''    DIR* d = fd < 3 ? nullptr : fd_dir(fd);
+    if (!d) {
+        ctx->gpr[3] = 0x8001002Au; // CELL_EBADF
+        return;
+    }''',
+        '''#if defined(__APPLE__)
+    if (fd >= 3 && fd < FS_MAX && g_disc_dirs[fd]) {
+        uint32_t count = 0;
+        ctx->gpr[3] = CELL_OK;
+        for (; count < bytes / 312; ++count) {
+            char name[256]; uint8_t is_directory = 0;
+            int result = soulbrandt_disc_vfs_list(g_disc_dir_path[fd],
+                g_disc_dir_index[fd]++, name, sizeof name, &is_directory);
+            if (result == 0) break;
+            if (result < 0) { ctx->gpr[3] = 0x8001002Bu; break; }
+            char path[1300]; uint64_t size = 0; uint8_t stat_is_dir = 0;
+            snprintf(path, sizeof path, "%s/%s", g_disc_dir_path[fd], name);
+            if (soulbrandt_disc_vfs_stat(path, &size, &stat_is_dir) != 0) {
+                ctx->gpr[3] = 0x8001002Bu; break;
+            }
+            const bool directory = is_directory || stat_is_dir;
+            uint32_t out = entries + count * 312;
+            memset(vm_base + out, 0, 312);
+            write_stat(out, (directory ? CELL_FS_S_IFDIR : CELL_FS_S_IFREG) |
+                             (directory ? 0777u : 0666u), size);
+            size_t length = strlen(name);
+            if (length > 255) length = 255;
+            vm_base[out + 52] = directory ? CELL_FS_TYPE_DIR : CELL_FS_TYPE_REG;
+            vm_base[out + 53] = (uint8_t)length;
+            memcpy(vm_base + out + 54, name, length);
+        }
+        vm_write32(count_ptr, count);
+        return;
+    }
+#endif
+    DIR* d = fd < 3 ? nullptr : fd_dir(fd);
+    if (!d) {
+        ctx->gpr[3] = 0x8001002Au; // CELL_EBADF
+        return;
+    }''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
         '''        d = g_dirs[fd];
         __atomic_store_n(&g_dirs[fd], (DIR*)nullptr, __ATOMIC_RELEASE);
     }
