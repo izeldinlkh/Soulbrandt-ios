@@ -11,7 +11,21 @@ printf '%s\n' 'void fixture_spu_image(void) {}' > "$TMP/spu/fixture/spu_recomp.c
 printf '%s\n' 'extern "C" int fixture_spu_registration(void) { return 1; }' > "$TMP/spu/_gen/spu_workloads.cpp"
 
 cat > "$TMP/recompiled/ppu_recomp.h" <<'EOF'
-#include "ps3emu/ppu_lift.h"
+#include <stdint.h>
+struct ppu_context;
+typedef struct {
+    uint64_t addr;
+    void (*func)(ppu_context*);
+    const char* name;
+} func_entry;
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const func_entry function_table[];
+extern const uint64_t function_table_count;
+#ifdef __cplusplus
+}
+#endif
 EOF
 # The desktop lift emits this all-module NID registration unit. iOS builds it
 # separately in the PPU-host archive, so the game-lift builder must omit it.
