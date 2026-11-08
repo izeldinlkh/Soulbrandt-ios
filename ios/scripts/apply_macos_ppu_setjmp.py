@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import sys
 
-CALL = re.compile(r"(?P<indent>[ \t]*)func_01674938\(ctx\);[ \t]*DRAIN_TRAMPOLINE\(ctx\);")
+CALL = re.compile(r"(?P<indent>[ \t]*)func_01674938\(ctx\);\s*DRAIN_TRAMPOLINE\(ctx\);")
 FUNC = "void func_01674A5C(ppu_context* ctx) {"
 
 
