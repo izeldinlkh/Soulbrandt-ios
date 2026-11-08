@@ -99,8 +99,6 @@ python3 "$PS3_ROOT/tools/ppu_lifter.py" "$EBOOT" \
 echo "[title-lift] applying the repository's boot patches"
 python3 "$ROOT/scripts/apply_boot_patches.py" "$RECOMP" --title BLUS30443
 
-# Preserve the macOS runner's guest setjmp/longjmp semantics in lifted PPU code.
-python3 "$ROOT/scripts/apply_macos_ppu_setjmp.py" "$RECOMP"
 
 echo "[title-lift] extracting and lifting SPU images and SPURS jobs"
 python3 "$ROOT/scripts/build_spu.py" --eboot "$EBOOT" \
