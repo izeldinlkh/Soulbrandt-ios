@@ -396,6 +396,14 @@ static uint32_t g_ppu_image_range_count = 0;
 
     patch_ppu_icall_cache(root)
 
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        """        "PPU_TOCFIX", "PPU_RETWATCH",
+""",
+        """        "PPU_TOCFIX", "PPU_RETWATCH", "PS3_ICALL_SLOW",
+""",
+    )
+
     # Ported from demons-souls-recomp's PPU lifter patch: a firmware HLE
     # import stub may begin with "std r2,40(r1)" to preserve the caller's TOC.
     # Replacing the stub body with ps3_hle_call must retain that save, or the
