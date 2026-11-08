@@ -149,6 +149,8 @@ int32_t soulbrandt_guest_load_elf(const void *bytes, uint64_t length,
 
     soulbrandt_guest_elf_info parsed = {0};
     parsed.entry_opd = (uint32_t)entry;
+    parsed.load_min_vaddr = UINT64_MAX;
+    parsed.load_max_vaddr = 0;
     int entry_in_load_segment = 0;
     int tls_seen = 0;
 
@@ -178,6 +180,10 @@ int32_t soulbrandt_guest_load_elf(const void *bytes, uint64_t length,
                 vaddr + memsz > SOULBRANDT_VM_SIZE) return -7;
             if (entry >= vaddr && entry < vaddr + memsz)
                 entry_in_load_segment = 1;
+            if (memsz) {
+                if (vaddr < parsed.load_min_vaddr) parsed.load_min_vaddr = vaddr;
+                if (vaddr + memsz > parsed.load_max_vaddr) parsed.load_max_vaddr = vaddr + memsz;
+            }
             parsed.load_segment_count++;
         }
     }
