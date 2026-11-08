@@ -279,11 +279,6 @@ def main() -> None:
         }
         fprintf(stderr, "[ppu] argc=%u argv=0x%08X\n", argc_n, argv_base);""",
     )
-    replace_once(
-        root, "runtime/ppu/ppu_loader.cpp",
-        '    fprintf(stderr, "[ppu] run: code 0x%08X, toc 0x%08X, sp 0x%08X\\\\n", code, toc, stack_top);',
-        '    fprintf(stderr, "[ppu] run: code 0x%08X, toc 0x%08X, sp 0x%08X\\\\n", code, toc, (uint32_t)ctx.gpr[1]);',
-    )
 
     # Ported from demons-souls-recomp's PPU lifter patch: a firmware HLE
     # import stub may begin with "std r2,40(r1)" to preserve the caller's TOC.
