@@ -383,6 +383,8 @@ static uint32_t g_ppu_image_range_count = 0;
         fprintf(stderr, "[ppu] argc=%u argv=0x%08X\n", argc_n, argv_base);""",
     )
 
+    patch_ppu_icall_cache(root)
+
     # Ported from demons-souls-recomp's PPU lifter patch: a firmware HLE
     # import stub may begin with "std r2,40(r1)" to preserve the caller's TOC.
     # Replacing the stub body with ps3_hle_call must retain that save, or the
