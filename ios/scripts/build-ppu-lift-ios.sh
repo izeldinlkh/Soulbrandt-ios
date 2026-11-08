@@ -10,6 +10,7 @@ PS3_ROOT="$(cd "$1" && pwd)"
 RECOMP_DIR="$2"
 SPU_DIR="${3:-$PS3_ROOT/work_spu}"
 OUT="${4:-$PWD/ppu-lift-ios-build}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
 
@@ -108,6 +109,17 @@ if [[ -f "$RECOMP_DIR/ppu_recomp.h" ]]; then
     compile_source "$source" ppu
     PPU_COUNT=$((PPU_COUNT + 1))
   done
+
+  # The macOS title port's guest setjmp/longjmp bridge is part of the PPU
+  # runtime contract, not an optional app-side helper. Compile it into the
+  # same archive as the generated lifted functions.
+  SETJMP_SOURCE="$REPO_ROOT/ios/SoulbrandtIOS/DSGuestSetjmp.cpp"
+  if [[ ! -f "$SETJMP_SOURCE" ]]; then
+    echo "missing macOS-derived PPU setjmp bridge: $SETJMP_SOURCE" >&2
+    exit 1
+  fi
+  compile_source "$SETJMP_SOURCE" ppu
+  PPU_COUNT=$((PPU_COUNT + 1))
 else
   echo "No PPU lift found at $RECOMP_DIR; building a marker archive for the no-game shell."
   printf '%s\n' 'int soulbrandt_no_game_lift_marker(void) { return 0; }' > "$OUT/no_game_lift_marker.c"
