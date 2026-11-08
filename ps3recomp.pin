@@ -5,6 +5,6 @@
 # Between releases the commit is the oldest ps3recomp this revision of the port works with. A port change
 # that needs a newer one moves it forward in the same pull request; the commit has to be on the fork's
 # master, so the ps3recomp pull request merges first. Change it with tools/release/pin_ps3recomp.py.
-repo=https://github.com/JonathanDC64/ps3recomp
+repo=https://github.com/sp00nznet/ps3recomp
 tag=none
-commit=b7adbb054eb087c8e9f0399d64001af89b1ae93d
+commit=4e8f3ca87a3e1d87bb83b8b7e9348fe2685cd514
