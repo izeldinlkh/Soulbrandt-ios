@@ -1,4 +1,14 @@
-#include "ps3emu/ppu_lift.h"
+#include <cstdint>
+
+// Keep the no-game fallback's table layout identical to the macOS lifter's
+// HEADER_PREAMBLE. The generated header supplies the complete ppu_context;
+// this fallback only needs an ABI-compatible function pointer declaration.
+struct ppu_context;
+typedef struct {
+    uint64_t addr;
+    void (*func)(ppu_context*);
+    const char* name;
+} func_entry;
 
 /* The no-game build still needs a table so the PPU host can link. The
  * generated game-lift archive is force-loaded when present; its strong table
