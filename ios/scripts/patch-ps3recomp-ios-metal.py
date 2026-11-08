@@ -9,10 +9,10 @@ from pathlib import Path
 import sys
 
 
-def replace_once(root: Path, relative: str, old: str, new: str) -> None:
+def replace_once(root: Path, relative: str, old: str, new: str, marker: str | None = None) -> None:
     path = root / relative
     source = path.read_text()
-    if new in source:
+    if new in source or (marker is not None and marker in source):
         return
     count = source.count(old)
     if count != 1:
@@ -170,6 +170,7 @@ def main() -> None:
     const uint32_t entry = image.entry_opd;
     fprintf(stderr, "[ppu] validated and loaded %u PT_LOAD segments, entry OPD 0x%08X\n",
             image.load_segment_count, entry);""",
+        marker="soulbrandt_guest_load_elf(file, (uint64_t)sz, &image)",
     )
 
     # The macOS runner keeps the loaded PT_LOAD envelope and places argv/envp
