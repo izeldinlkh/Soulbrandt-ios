@@ -44,6 +44,10 @@ for tool in "$PS3_ROOT/tools/ppu_loader.py" "$PS3_ROOT/tools/ppu_lifter.py" \
 done
 [[ -s "$EBOOT" ]] || { echo "EBOOT is missing or empty: $EBOOT" >&2; exit 1; }
 
+# Apply the iOS host adaptation and the macOS-proven PPU HLE TOC fix before lifting.
+echo "[title-lift] applying iOS runtime and macOS PPU source patches"
+python3 "$ROOT/ios/scripts/patch-ps3recomp-ios-metal.py" "$PS3_ROOT"
+
 # These title-specific overrides are address-based. Refuse a different executable revision.
 EXPECTED_EBOOT_ELF_SHA256="90eaa5e9e48b4874292badc311ccea253e6a622ff188bfbdbe76e6f6821269d8"
 if command -v shasum >/dev/null 2>&1; then
