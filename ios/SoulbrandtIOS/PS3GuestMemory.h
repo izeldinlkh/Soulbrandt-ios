@@ -13,6 +13,8 @@ typedef struct soulbrandt_guest_elf_info {
     uint32_t tls_filesz;
     uint32_t tls_memsz;
     uint32_t load_segment_count;
+    uint64_t load_min_vaddr;
+    uint64_t load_max_vaddr;
 } soulbrandt_guest_elf_info;
 
 /* Reserve the complete 32-bit PS3 guest address space. The returned base is
