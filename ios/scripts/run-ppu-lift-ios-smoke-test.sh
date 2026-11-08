@@ -54,7 +54,7 @@ EOF
 bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
   "$PS3_ROOT" "$TMP/recompiled" "$TMP/spu" "$TMP/lift-build"
 grep -Fqx 'game_lift=1' "$TMP/lift-build/lift-status.txt"
-grep -Fqx 'ppu_sources=1' "$TMP/lift-build/lift-status.txt"
+grep -Fqx 'ppu_sources=2' "$TMP/lift-build/lift-status.txt"
 grep -Fqx 'spu_sources=3' "$TMP/lift-build/lift-status.txt"
 test -s "$TMP/lift-build/libSoulbrandtGameLift.a"
 if /usr/bin/nm -g "$TMP/lift-build/libSoulbrandtGameLift.a" | grep -q 'ppu_hle_register_all'; then
