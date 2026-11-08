@@ -20,6 +20,44 @@ def replace_once(root: Path, relative: str, old: str, new: str, marker: str | No
     path.write_text(source.replace(old, new, 1))
 
 
+def patch_ppu_icall_cache(root: Path) -> None:
+    """Port the macOS positive-only PPU indirect-call cache, idempotently."""
+    path = root / "runtime/ppu/ppu_loader.cpp"
+    source = path.read_text()
+    if "g_ppu_icache[PPU_ICACHE_N]" in source:
+        return
+    function = 'extern "C" void ps3_indirect_call(ppu_context* ctx)'
+    start = source.find(function)
+    if start < 0:
+        raise SystemExit("runtime/ppu/ppu_loader.cpp: ps3_indirect_call definition not found")
+    needle = "        const ppu_fn fn = addr ? ppu_lookup(addr) : nullptr;"
+    pos = source.find(needle, start)
+    if pos < 0:
+        raise SystemExit("runtime/ppu/ppu_loader.cpp: lean indirect-call lookup anchor not found")
+    declaration = """/* Direct-mapped per-host-thread target cache (macOS PPU fix 68).
+ * Positive entries only: late PRX registrations remain discoverable on misses. */
+enum { PPU_ICACHE_N = 1024 };
+typedef struct ppu_icache_entry {
+    uint32_t addr;
+    ppu_fn fn;
+} ppu_icache_entry;
+static PPU_THREAD_LOCAL ppu_icache_entry g_ppu_icache[PPU_ICACHE_N];
+
+"""
+    replacement = """        const uint32_t slot = (addr >> 2) & (PPU_ICACHE_N - 1);
+        ppu_fn fn = (addr && g_ppu_icache[slot].addr == addr)
+                  ? g_ppu_icache[slot].fn : nullptr;
+        if (!fn && addr) {
+            fn = ppu_lookup(addr);
+            if (fn) {
+                g_ppu_icache[slot].addr = addr;
+                g_ppu_icache[slot].fn = fn;
+            }
+        }"""
+    source = source[:start] + declaration + source[start:pos] + replacement + source[pos + len(needle):]
+    path.write_text(source)
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("usage: patch-ps3recomp-ios-metal.py PS3RECOMP_SOURCE_DIR")
@@ -935,60 +973,7 @@ static FILE* ps3_disc_fopen(const char* path)
 extern "C" int* ps3_ppu_dispatch_depth_slot(void) { return &s_icall_depth; }""",
     )
 
-    # Port the macOS PPU dispatch-cache optimization (ps3recomp-local.patch,
-    # fix 68). The current iOS fork already has the diagnostics-free lean path,
-    # but it still hashes every repeated guest function-pointer target. Keep a
-    # small per-host-thread direct-mapped cache in front of ppu_lookup().
-    replace_once(
-        root, "runtime/ppu/ppu_loader.cpp",
-        """extern "C" void ps3_indirect_call(ppu_context* ctx)
-{
-    if ((g_icall_diag_gen == ps3_env_gen ? g_icall_diag : icall_diag_load()) == 0 && g_icall_lean) {
-        const uint32_t addr = (uint32_t)ctx->ctr;
-        const ppu_fn fn = addr ? ppu_lookup(addr) : nullptr;
-        if (fn && s_icall_depth <= 4000) {
-            g_active_ctx = ctx;
-            icall_run(ctx, addr, fn);
-            return;
-        }
-    }
-    ps3_indirect_call_full(ctx);
-}""",
-        """/* Direct-mapped per-host-thread target cache (macOS PPU fix 68).
- * The title's function table is immutable after registration. HighGraphics
- * dispatches through guest function pointers for nearly every scene-graph
- * node, so avoiding a hash-table lookup on repeated targets matters on ARM64
- * too. Misses and unregistered targets retain the full dispatcher path. */
-enum { PPU_ICACHE_N = 1024 };
-typedef struct ppu_icache_entry {
-    uint32_t addr;
-    ppu_fn fn;
-} ppu_icache_entry;
-static PPU_THREAD_LOCAL ppu_icache_entry g_ppu_icache[PPU_ICACHE_N];
-
-extern "C" void ps3_indirect_call(ppu_context* ctx)
-{
-    if ((g_icall_diag_gen == ps3_env_gen ? g_icall_diag : icall_diag_load()) == 0 && g_icall_lean) {
-        const uint32_t addr = (uint32_t)ctx->ctr;
-        const uint32_t slot = (addr >> 2) & (PPU_ICACHE_N - 1);
-        ppu_fn fn = (addr && g_ppu_icache[slot].addr == addr)
-                  ? g_ppu_icache[slot].fn : nullptr;
-        if (!fn && addr) {
-            fn = ppu_lookup(addr);
-            if (fn) {
-                g_ppu_icache[slot].addr = addr;
-                g_ppu_icache[slot].fn = fn;
-            }
-        }
-        if (fn && s_icall_depth <= 4000) {
-            g_active_ctx = ctx;
-            icall_run(ctx, addr, fn);
-            return;
-        }
-    }
-    ps3_indirect_call_full(ctx);
-}""",
-    )
+    patch_ppu_icall_cache(root)
 
     # Implement HDD deletion against the app-owned writable overlays. The
     # imported /dev_bdvd image remains read-only and cannot be unlinked/rmdir'd.
