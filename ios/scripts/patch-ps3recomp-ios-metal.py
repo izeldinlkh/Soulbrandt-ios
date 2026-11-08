@@ -172,6 +172,114 @@ def main() -> None:
             image.load_segment_count, entry);""",
     )
 
+    # The macOS runner keeps the loaded PT_LOAD envelope and places argv/envp
+    # on the guest main stack, not at a fixed address in the game's data/heap.
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        'extern "C" uint32_t ppu_vm_size = 0;\\n',
+        'extern "C" uint32_t ppu_vm_size = 0;\\nstatic uint64_t g_ppu_image_min = 0x100000000ull;\\nstatic uint64_t g_ppu_image_max = 0;\\n',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        """    g_tls_vaddr = image.tls_vaddr;
+    g_tls_filesz = image.tls_filesz;
+    g_tls_memsz = image.tls_memsz;
+    const uint32_t entry = image.entry_opd;""",
+        """    g_tls_vaddr = image.tls_vaddr;
+    g_tls_filesz = image.tls_filesz;
+    g_tls_memsz = image.tls_memsz;
+    g_ppu_image_min = image.load_min_vaddr;
+    g_ppu_image_max = image.load_max_vaddr;
+    const uint32_t entry = image.entry_opd;""",
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        r"""        uint32_t argv_base = 0x00B00000u;          /* scratch in the .data/heap gap */
+        /* argc_n argv pointers, a NULL argv terminator, then a NULL envp. */
+        uint32_t slots     = (argc_n + 2u) * 8u;
+        uint32_t str_addr  = argv_base + ((slots + 0x1Fu) & ~0x1Fu);
+        uint32_t sp_cur    = str_addr;
+        for (uint32_t a = 0; a < argc_n; a++) {
+            uint32_t j = 0;
+            for (; argp[a][j]; j++) vm_write8(sp_cur + j, (uint8_t)argp[a][j]);
+            vm_write8(sp_cur + j, 0);
+            vm_write32(argv_base + a * 8u + 0, 0);        /* pointer hi word */
+            vm_write32(argv_base + a * 8u + 4, sp_cur);   /* pointer lo word */
+            sp_cur = (sp_cur + j + 1u + 0xFu) & ~0xFu;    /* lv2 aligns each string */
+        }
+        vm_write32(argv_base + argc_n * 8u + 0, 0);        /* argv NULL terminator */
+        vm_write32(argv_base + argc_n * 8u + 4, 0);
+        vm_write32(argv_base + (argc_n + 1u) * 8u + 0, 0); /* envp NULL            */
+        vm_write32(argv_base + (argc_n + 1u) * 8u + 4, 0);
+        /* The pointer goes in the LOW word (+4) of each 8-byte slot: a guest CRT
+         * reads argv as 64-bit big-endian pointers at [argv + 4 + i*8]. Writing it
+         * at +0 leaves the CRT reading 0 there -- a null argv[0], which YDKJ read as
+         * an empty boot device before deadlocking on a data.toc it never loaded. */
+        ctx.gpr[3] = argc_n;                        /* argc */
+        ctx.gpr[4] = argv_base;                     /* argv */
+        /* Read back: demand-committed pages can swallow a write, and a silently
+         * empty argv is hard to recognise from the guest side. */
+        for (uint32_t a = 0; a < argc_n; a++) {
+            uint32_t pa = __builtin_bswap32(*(uint32_t*)(vm_base + argv_base + a * 8u + 4));
+            char rb[80]; uint32_t k = 0;
+            for (; k < 79; k++) { rb[k] = (char)vm_base[pa + k]; if (!rb[k]) break; }
+            rb[79] = 0;
+            fprintf(stderr, "[ppu] argv[%u] @0x%08X = \\"%s\\"\\n", a, pa, rb);
+        }
+        fprintf(stderr, "[ppu] argc=%u argv=0x%08X\\n", argc_n, argv_base);""",
+        r"""        /* Put the process-entry frame, argv and envp on the reserved guest
+         * main stack, matching the macOS runner and LV2 ABI. Never use a fixed
+         * address in the image/data/heap window. */
+        uint32_t slots = (argc_n + 2u) * 8u;
+        uint64_t strings_offset = (slots + 0x1Fu) & ~uint64_t(0x1F);
+        uint64_t bytes = strings_offset;
+        for (uint32_t a = 0; a < argc_n; a++)
+            bytes += (strlen(argp[a]) + 1u + 0xFu) & ~uint64_t(0xF);
+        const uint32_t entry_frame = 0x80;
+        const uint64_t reserve = (entry_frame + bytes + 0x1Fu) & ~uint64_t(0x1F);
+        const uint64_t top = stack_top & ~uint64_t(0x1F);
+        const uint64_t vm_end = ppu_vm_size ? ppu_vm_size : 0x100000000ull;
+        if (reserve > 0x10000 || top > vm_end || top < 0x10000u + reserve) {
+            fprintf(stderr, "[ppu] invalid entry argument stack reservation\\n");
+            return -1;
+        }
+        const uint32_t entry_sp = (uint32_t)(top - reserve);
+        if (g_ppu_image_min < top && g_ppu_image_max > entry_sp) {
+            fprintf(stderr, "[ppu] entry argument stack overlaps loaded image\\n");
+            return -1;
+        }
+        ctx.gpr[1] = entry_sp;
+        for (uint32_t off = 0; off < entry_frame; off += 8)
+            vm_write64(entry_sp + off, 0);
+        const uint32_t argv_base = entry_sp + entry_frame;
+        const uint32_t str_addr = argv_base + (uint32_t)strings_offset;
+        uint32_t sp_cur = str_addr;
+        for (uint32_t a = 0; a < argc_n; a++) {
+            uint32_t j = 0;
+            for (; argp[a][j]; j++) vm_write8(sp_cur + j, (uint8_t)argp[a][j]);
+            vm_write8(sp_cur + j, 0);
+            vm_write32(argv_base + a * 8u + 0, 0);
+            vm_write32(argv_base + a * 8u + 4, sp_cur);
+            sp_cur = (sp_cur + j + 1u + 0xFu) & ~0xFu;
+        }
+        vm_write32(argv_base + argc_n * 8u + 0, 0);
+        vm_write32(argv_base + argc_n * 8u + 4, 0);
+        vm_write32(argv_base + (argc_n + 1u) * 8u + 0, 0);
+        vm_write32(argv_base + (argc_n + 1u) * 8u + 4, 0);
+        ctx.gpr[3] = argc_n;
+        ctx.gpr[4] = argv_base;
+        ctx.gpr[5] = argv_base + (argc_n + 1u) * 8u;
+        ctx.gpr[6] = 0;
+        for (uint32_t a = 0; a < argc_n; a++) {
+            uint32_t pa = __builtin_bswap32(*(uint32_t*)(vm_base + argv_base + a * 8u + 4));
+            char rb[80]; uint32_t k = 0;
+            for (; k < 79; k++) { rb[k] = (char)vm_base[pa + k]; if (!rb[k]) break; }
+            rb[79] = 0;
+            fprintf(stderr, "[ppu] argv[%u] @0x%08X = \\"%s\\"\\n", a, pa, rb);
+        }
+        fprintf(stderr, "[ppu] argc=%u argv=0x%08X\\n", argc_n, argv_base);""",
+    )
+
     # Ported from demons-souls-recomp's PPU lifter patch: a firmware HLE
     # import stub may begin with "std r2,40(r1)" to preserve the caller's TOC.
     # Replacing the stub body with ps3_hle_call must retain that save, or the
