@@ -894,15 +894,8 @@ int rsx_metal_backend_init(u32 width, u32 height, const char* title)
     replace_once(
         root, "libs/video/rsx_metal_backend.m",
         """#if TARGET_OS_IPHONE
-        if (s_layer) {
-            s_layer.device = s_dev;
-            s_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-            s_layer.framebufferOnly = YES;
-            s_layer.drawableSize = CGSizeMake((CGFloat)s_width, (CGFloat)s_height);
-            rc = 0;
-        } else {
-            rc = create_offscreen();
-        }
+        s_headless = 1;
+        rc = create_offscreen();
 #else""",
         """#if TARGET_OS_IPHONE
         if (s_layer) {

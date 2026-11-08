@@ -19,7 +19,7 @@ void func_01674A5C(ppu_context* ctx) {
 }
 CPP
 
-python3 "$ROOT/scripts/apply_macos_ppu_setjmp.py" "$TMP"
+python3 "$ROOT/ios/scripts/apply_macos_ppu_setjmp.py" "$TMP"
 python3 "$ROOT/scripts/apply_macos_ppu_setjmp.py" "$TMP"
 grep -Fq 'ds_sj_arm(ctx, __builtin_frame_address(0))' "$TMP/ppu_recomp_0.cpp"
 grep -Fq 'ds_sj_jump(ctx, _sj_buf, _sj_lr);' "$TMP/ppu_recomp_0.cpp"
