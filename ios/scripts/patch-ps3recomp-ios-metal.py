@@ -861,6 +861,11 @@ def main() -> None:
 
     replace_once(
         root, "libs/video/rsx_metal_backend.m",
+        "#include <servers/bootstrap.h>\\n#include <IOSurface/IOSurfaceRef.h>",
+        "#if !TARGET_OS_IPHONE\\n#include <servers/bootstrap.h>\\n#include <IOSurface/IOSurfaceRef.h>\\n#endif",
+    )
+    replace_once(
+        root, "libs/video/rsx_metal_backend.m",
         "static NSWindow*           s_window;\n",
         "#if !TARGET_OS_IPHONE\nstatic NSWindow*           s_window;\n#endif\n",
     )
