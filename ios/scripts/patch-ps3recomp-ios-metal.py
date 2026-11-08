@@ -1101,9 +1101,10 @@ static void pad_shutdown_backend(void) {}
         "    pad_shutdown_backend();\n",
         "#if !PAD_BACKEND_IOS_NATIVE\n    pad_shutdown_backend();\n#endif\n",
     )
-    replace_once(
+    replace_one_of(
         root, "libs/input/cellPad.c",
-        """#if PAD_BACKEND_XINPUT
+        [
+            """#if PAD_BACKEND_XINPUT
     pad_poll_xinput();
     pad_poll_hid();
 #elif PAD_BACKEND_SDL2
@@ -1115,23 +1116,29 @@ static void pad_shutdown_backend(void) {}
 #if PAD_BACKEND_XINPUT || PAD_BACKEND_SDL2
     pad_poll_keyboard();
 #endif""",
+            """#if PAD_BACKEND_XINPUT
+    pad_poll_xinput();
+#elif PAD_BACKEND_SDL2
+    pad_poll_sdl2();
+#endif
+#ifdef _WIN32
+    if (!s_host_state[0].connected) pad_poll_keyboard();
+#endif
+    pad_track_assign();
+    pad_unlock();"""
+        ],
         """#if PAD_BACKEND_IOS_NATIVE
     pad_poll_ios_native();
-    pad_publish_devices();
-#else
-#if PAD_BACKEND_XINPUT
+#elif PAD_BACKEND_XINPUT
     pad_poll_xinput();
-    pad_poll_hid();
 #elif PAD_BACKEND_SDL2
     pad_poll_sdl2();
 #endif
-    pad_apply_controller();
-    pad_publish_devices();
-    pad_apply_map();   /* the pads only: the keyboard has its own keys */
-#if PAD_BACKEND_XINPUT || PAD_BACKEND_SDL2
-    pad_poll_keyboard();
+#ifdef _WIN32
+    if (!s_host_state[0].connected) pad_poll_keyboard();
 #endif
-#endif""",
+    pad_track_assign();
+    pad_unlock();""",
     )
 
     if macos_ppu_runtime:
