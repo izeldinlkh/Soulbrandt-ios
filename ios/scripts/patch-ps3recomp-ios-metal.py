@@ -176,8 +176,8 @@ def main() -> None:
     # on the guest main stack, not at a fixed address in the game's data/heap.
     replace_once(
         root, "runtime/ppu/ppu_loader.cpp",
-        'extern "C" uint32_t ppu_vm_size = 0;\\n',
-        'extern "C" uint32_t ppu_vm_size = 0;\\nstatic uint64_t g_ppu_image_min = 0x100000000ull;\\nstatic uint64_t g_ppu_image_max = 0;\\n',
+        """extern "C" uint32_t ppu_vm_size = 0;\n""",
+        """extern "C" uint32_t ppu_vm_size = 0;\nstatic uint64_t g_ppu_image_min = 0x100000000ull;\nstatic uint64_t g_ppu_image_max = 0;\n""",
     )
     replace_once(
         root, "runtime/ppu/ppu_loader.cpp",
@@ -224,9 +224,9 @@ def main() -> None:
             char rb[80]; uint32_t k = 0;
             for (; k < 79; k++) { rb[k] = (char)vm_base[pa + k]; if (!rb[k]) break; }
             rb[79] = 0;
-            fprintf(stderr, "[ppu] argv[%u] @0x%08X = \\"%s\\"\\n", a, pa, rb);
+            fprintf(stderr, "[ppu] argv[%u] @0x%08X = \"%s\"\n", a, pa, rb);
         }
-        fprintf(stderr, "[ppu] argc=%u argv=0x%08X\\n", argc_n, argv_base);""",
+        fprintf(stderr, "[ppu] argc=%u argv=0x%08X\n", argc_n, argv_base);""",
         r"""        /* Put the process-entry frame, argv and envp on the reserved guest
          * main stack, matching the macOS runner and LV2 ABI. Never use a fixed
          * address in the image/data/heap window. */
@@ -240,12 +240,12 @@ def main() -> None:
         const uint64_t top = stack_top & ~uint64_t(0x1F);
         const uint64_t vm_end = ppu_vm_size ? ppu_vm_size : 0x100000000ull;
         if (reserve > 0x10000 || top > vm_end || top < 0x10000u + reserve) {
-            fprintf(stderr, "[ppu] invalid entry argument stack reservation\\n");
+            fprintf(stderr, "[ppu] invalid entry argument stack reservation\n");
             return -1;
         }
         const uint32_t entry_sp = (uint32_t)(top - reserve);
         if (g_ppu_image_min < top && g_ppu_image_max > entry_sp) {
-            fprintf(stderr, "[ppu] entry argument stack overlaps loaded image\\n");
+            fprintf(stderr, "[ppu] entry argument stack overlaps loaded image\n");
             return -1;
         }
         ctx.gpr[1] = entry_sp;
@@ -275,9 +275,14 @@ def main() -> None:
             char rb[80]; uint32_t k = 0;
             for (; k < 79; k++) { rb[k] = (char)vm_base[pa + k]; if (!rb[k]) break; }
             rb[79] = 0;
-            fprintf(stderr, "[ppu] argv[%u] @0x%08X = \\"%s\\"\\n", a, pa, rb);
+            fprintf(stderr, "[ppu] argv[%u] @0x%08X = \"%s\"\n", a, pa, rb);
         }
-        fprintf(stderr, "[ppu] argc=%u argv=0x%08X\\n", argc_n, argv_base);""",
+        fprintf(stderr, "[ppu] argc=%u argv=0x%08X\n", argc_n, argv_base);""",
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_loader.cpp",
+        '    fprintf(stderr, "[ppu] run: code 0x%08X, toc 0x%08X, sp 0x%08X\\\\n", code, toc, stack_top);',
+        '    fprintf(stderr, "[ppu] run: code 0x%08X, toc 0x%08X, sp 0x%08X\\\\n", code, toc, (uint32_t)ctx.gpr[1]);',
     )
 
     # Ported from demons-souls-recomp's PPU lifter patch: a firmware HLE
