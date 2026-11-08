@@ -194,6 +194,69 @@ def main() -> None:
                 f"    ps3_hle_call(0x{nid:08X}u, ctx); return;  /* import stub */")""",
     )
 
+    # Ported from demons-souls-recomp's PPU runtime: the main PPU context is
+    # registered in the thread table but has no per-thread stack record. Treat
+    # that case like the macOS runner and report its explicitly configured
+    # guest stack instead of returning 0+0 to the game.
+    replace_once(
+        root, "runtime/syscalls/sys_ppu_thread.c",
+        "int64_t sys_ppu_thread_get_stack_information(ppu_context* ctx)\\n{",
+        """uint32_t g_ppu_main_stack_addr = 0;
+uint32_t g_ppu_main_stack_size = 0;
+
+static void main_stack_info(uint32_t* addr, uint32_t* size)
+{
+    if (g_ppu_main_stack_size) {
+        *addr = g_ppu_main_stack_addr;
+        *size = g_ppu_main_stack_size;
+    } else {
+        *addr = VM_STACK_BASE;
+        *size = VM_PPU_STACK_SIZE;
+    }
+}
+
+int64_t sys_ppu_thread_get_stack_information(ppu_context* ctx)
+{""",
+    )
+    replace_once(
+        root, "runtime/syscalls/sys_ppu_thread.c",
+        """    if (!t) {
+        table_unlock();
+        /* For the main thread, return sensible defaults */
+        if (out_addr != 0) {
+            uint32_t* out = (uint32_t*)vm_to_host(out_addr);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ || defined(_WIN32)
+            /* byteswap both fields */
+            uint32_t sa = VM_STACK_BASE;
+            uint32_t ss = VM_PPU_STACK_SIZE;""",
+        """    if (!t || !t->stack_size) {
+        table_unlock();
+        /* The main PPU context is registered but has no thread stack record. */
+        if (out_addr != 0) {
+            uint32_t* out = (uint32_t*)vm_to_host(out_addr);
+            uint32_t sa, ss;
+            main_stack_info(&sa, &ss);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ || defined(_WIN32)
+            /* byteswap both fields */""",
+    )
+    replace_once(
+        root, "runtime/syscalls/sys_ppu_thread.c",
+        """#else
+            out[0] = VM_STACK_BASE;
+            out[1] = VM_PPU_STACK_SIZE;
+#endif
+        }
+        return CELL_OK;
+    }""",
+        """#else
+            out[0] = sa;
+            out[1] = ss;
+#endif
+        }
+        return CELL_OK;
+    }""",
+    )
+
     replace_once(
         root, "libs/video/rsx_metal_backend.m",
         "static NSWindow*           s_window;\n",
