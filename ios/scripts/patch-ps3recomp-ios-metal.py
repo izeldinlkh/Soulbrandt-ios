@@ -425,6 +425,19 @@ def main() -> None:
     if not (root / "libs/video/rsx_metal_backend.m").is_file():
         raise SystemExit(f"not a ps3recomp checkout: {root}")
 
+    # The runtime's CMake target does not inherit the app target's include
+    # directories. Stage the small bridge header into ps3recomp's public include
+    # root so both the standalone archive builder and CMake runtime build see it.
+    port_root = Path(__file__).resolve().parents[2]
+    bridge_header = port_root / "ios/SoulbrandtIOS/PS3DiscVFSBridge.h"
+    if not bridge_header.is_file():
+        raise SystemExit(f"missing iOS disc VFS bridge header: {bridge_header}")
+    staged_header = root / "include/PS3DiscVFSBridge.h"
+    header_text = bridge_header.read_text()
+    if not staged_header.is_file() or staged_header.read_text() != header_text:
+        staged_header.write_text(header_text)
+
+
     loader_path = root / "runtime/ppu/ppu_loader.cpp"
     loader_source = loader_path.read_text()
     thread_source = (root / "runtime/syscalls/sys_ppu_thread.c").read_text()
