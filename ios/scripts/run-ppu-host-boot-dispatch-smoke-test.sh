@@ -14,6 +14,7 @@ cat > "$TMP/boot_bridge_test.cpp" <<'EOF'
 static uint32_t g_functions = 0;
 static int g_loads, g_recomp, g_hle, g_prx, g_fs, g_lv2, g_metadata, g_runs;
 static uint32_t g_run_entry, g_run_stack;
+extern "C" { uint32_t g_ppu_main_stack_addr = 0; uint32_t g_ppu_main_stack_size = 0; }
 typedef void (*guest_caller_fn)(uint32_t, uint64_t, uint64_t, uint64_t, uint64_t,
                                 uint64_t, uint64_t, uint64_t, uint64_t);
 extern "C" { guest_caller_fn g_ps3_guest_caller = nullptr; }
@@ -50,6 +51,7 @@ int main() {
     }
     if (soulbrandt_ppu_host_is_running() || soulbrandt_ppu_host_run_result() != 23) return 7;
     if (g_runs != 1 || g_run_entry != 0x12345678u || g_run_stack != 0x0FF00000u) return 8;
+    if (g_ppu_main_stack_addr != 0x0FE00000u || g_ppu_main_stack_size != 0x00100000u) return 11;
     if (soulbrandt_ppu_host_start_game() != -3) return 9;
     soulbrandt_ppu_host_reset_image();
     if (soulbrandt_ppu_host_is_ready()) return 10;
