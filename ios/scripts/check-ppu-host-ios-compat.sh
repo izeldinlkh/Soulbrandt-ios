@@ -87,7 +87,7 @@ C_COMMON=(
   -I"$PS3_ROOT/libs/misc"
   -I"$PS3_ROOT/third_party/mbedtls/include"
 )
-for source in runtime/syscalls/sys_ppu_thread.c "$PORT_ROOT/ios/SoulbrandtIOS/PS3GuestMemory.c"; do
-  echo "[ios-ppu] syntax-checking $source"
-  xcrun --sdk iphoneos clang "${C_COMMON[@]}" "$PS3_ROOT/$source"
-done
+echo "[ios-ppu] syntax-checking runtime/syscalls/sys_ppu_thread.c"
+xcrun --sdk iphoneos clang "${C_COMMON[@]}" "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
+echo "[ios-ppu] syntax-checking PS3GuestMemory.c"
+xcrun --sdk iphoneos clang "${C_COMMON[@]}" "$PORT_ROOT/ios/SoulbrandtIOS/PS3GuestMemory.c"
