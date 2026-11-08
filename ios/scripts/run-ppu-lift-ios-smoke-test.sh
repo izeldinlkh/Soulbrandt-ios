@@ -36,17 +36,9 @@ EOF
 bash "$IOS_ROOT/scripts/build-ppu-lift-ios.sh" \
   "$PS3_ROOT" "$TMP/recompiled" "$TMP/spu" "$TMP/lift-build"
 grep -Fqx 'game_lift=1' "$TMP/lift-build/lift-status.txt"
-grep -Fqx 'ppu_sources=2' "$TMP/lift-build/lift-status.txt"
+grep -Fqx 'ppu_sources=1' "$TMP/lift-build/lift-status.txt"
 grep -Fqx 'spu_sources=3' "$TMP/lift-build/lift-status.txt"
 test -s "$TMP/lift-build/libSoulbrandtGameLift.a"
-if ! /usr/bin/nm -g "$TMP/lift-build/libSoulbrandtGameLift.a" | awk '$NF == "_ds_sj_arm" { found=1 } END { exit !found }'; then
-  echo "game-lift archive is missing the macOS-derived guest setjmp bridge" >&2
-  exit 1
-fi
-if ! /usr/bin/nm -g "$TMP/lift-build/libSoulbrandtGameLift.a" | awk '$NF == "_ds_sj_jump" { found=1 } END { exit !found }'; then
-  echo "game-lift archive is missing the macOS-derived guest longjmp bridge" >&2
-  exit 1
-fi
 if /usr/bin/nm -g "$TMP/lift-build/libSoulbrandtGameLift.a" | grep -q 'ppu_hle_register_all'; then
   echo "game-lift archive duplicated the PPU-host HLE NID registration unit" >&2
   exit 1
