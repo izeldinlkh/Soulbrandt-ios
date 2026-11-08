@@ -45,40 +45,51 @@ def replace_if_present(root: Path, relative: str, old: str, new: str) -> None:
 
 
 def patch_ppu_icall_cache(root: Path) -> None:
-    """Port the macOS positive-only PPU indirect-call cache, idempotently."""
+    """Install the positive-only PPU indirect-call cache on either runtime layout."""
     path = root / "runtime/ppu/ppu_loader.cpp"
     source = path.read_text()
     if "g_ppu_icache[PPU_ICACHE_N]" in source:
         return
-    function = 'extern "C" void ps3_indirect_call(ppu_context* ctx)'
-    start = source.find(function)
-    if start < 0:
-        raise SystemExit("runtime/ppu/ppu_loader.cpp: ps3_indirect_call definition not found")
-    needle = "        const ppu_fn fn = addr ? ppu_lookup(addr) : nullptr;"
-    pos = source.find(needle, start)
-    if pos < 0:
-        raise SystemExit("runtime/ppu/ppu_loader.cpp: lean indirect-call lookup anchor not found")
-    declaration = """/* Direct-mapped per-host-thread target cache (macOS PPU fix 68).
+
+    declaration = """/* Direct-mapped per-host-thread target cache.
  * Positive entries only: late PRX registrations remain discoverable on misses. */
 enum { PPU_ICACHE_N = 1024 };
-typedef struct ppu_icache_entry {
-    uint32_t addr;
-    ppu_fn fn;
-} ppu_icache_entry;
+typedef struct ppu_icache_entry { uint32_t addr; ppu_fn fn; } ppu_icache_entry;
 static PPU_THREAD_LOCAL ppu_icache_entry g_ppu_icache[PPU_ICACHE_N];
 
 """
-    replacement = """        const uint32_t slot = (addr >> 2) & (PPU_ICACHE_N - 1);
+
+    # Older upstream layout: the lookup lives directly in ps3_indirect_call.
+    function = 'extern "C" void ps3_indirect_call(ppu_context* ctx)'
+    start = source.find(function)
+    needle = "        const ppu_fn fn = addr ? ppu_lookup(addr) : nullptr;"
+    pos = source.find(needle, start) if start >= 0 else -1
+    if pos >= 0:
+        replacement = """        const uint32_t slot = (addr >> 2) & (PPU_ICACHE_N - 1);
         ppu_fn fn = (addr && g_ppu_icache[slot].addr == addr)
                   ? g_ppu_icache[slot].fn : nullptr;
         if (!fn && addr) {
             fn = ppu_lookup(addr);
-            if (fn) {
-                g_ppu_icache[slot].addr = addr;
-                g_ppu_icache[slot].fn = fn;
-            }
+            if (fn) { g_ppu_icache[slot].addr = addr; g_ppu_icache[slot].fn = fn; }
         }"""
-    source = source[:start] + declaration + source[start:pos] + replacement + source[pos + len(needle):]
+        source = source[:start] + declaration + source[start:pos] + replacement + source[pos + len(needle):]
+        path.write_text(source)
+        return
+
+    # macOS v0.18.0 layout: the lookup is inside ps3_indirect_call_impl.
+    impl = "static void ps3_indirect_call_impl(ppu_context* ctx)"
+    impl_pos = source.find(impl)
+    needle = "    ppu_fn fn = ppu_lookup(addr);"
+    pos = source.find(needle, impl_pos) if impl_pos >= 0 else -1
+    if pos < 0:
+        raise SystemExit("runtime/ppu/ppu_loader.cpp: neither supported indirect-call lookup anchor was found")
+    source = source[:impl_pos] + declaration + source[impl_pos:pos] + """    const uint32_t slot = (addr >> 2) & (PPU_ICACHE_N - 1);
+    ppu_fn fn = (addr && g_ppu_icache[slot].addr == addr)
+              ? g_ppu_icache[slot].fn : nullptr;
+    if (!fn && addr) {
+        fn = ppu_lookup(addr);
+        if (fn) { g_ppu_icache[slot].addr = addr; g_ppu_icache[slot].fn = fn; }
+    }""" + source[pos + len(needle):]
     path.write_text(source)
 
 
