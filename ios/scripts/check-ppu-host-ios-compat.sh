@@ -12,6 +12,9 @@ grep -Fq 'tid == 1 && g_ppu_main_stack_addr' "$PS3_ROOT/runtime/syscalls/sys_ppu
 grep -Fq 'tid == 1 && g_ppu_main_stack_size' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
 grep -Fq 'PPU_ICACHE_N = 1024' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'g_ppu_icache[PPU_ICACHE_N]' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
+grep -Fq 'g_ppu_image_min = image.load_min_vaddr;' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
+grep -Fq 'entry argument stack overlaps loaded image' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
+grep -Fq 'ctx.gpr[5] = argv_base + (argc_n + 1u) * 8u;' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'main_stack_info(&sa, &ss);' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 COMMON=(
