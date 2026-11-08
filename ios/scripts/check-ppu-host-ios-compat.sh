@@ -10,6 +10,7 @@ grep -Fq 'uint32_t g_ppu_main_stack_addr = 0;' "$PS3_ROOT/runtime/syscalls/sys_p
 grep -Fq 'if (!t || !t->stack_size)' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
 grep -Fq 'PPU_ICACHE_N = 1024' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'g_ppu_icache[PPU_ICACHE_N]' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
+grep -Fq 'PS3_ICALL_SLOW' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'g_ppu_image_range_count = image.load_range_count;' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'g_ppu_image_ranges[i]' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
 grep -Fq 'entry argument stack overlaps loaded image' "$PS3_ROOT/runtime/ppu/ppu_loader.cpp"
