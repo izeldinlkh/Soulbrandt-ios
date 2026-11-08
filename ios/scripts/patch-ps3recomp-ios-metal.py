@@ -963,18 +963,6 @@ static FILE* ps3_disc_fopen(const char* path)
     ctx->gpr[3] = CELL_OK;''',
     )
 
-    # The macOS guest setjmp bridge must restore the active PPU dispatch depth
-    # when guest longjmp skips lifted dispatcher frames. This iOS fork has no
-    # separate vcall stack, so expose its one per-thread indirect-call depth.
-    replace_once(
-        root, "runtime/ppu/ppu_loader.cpp",
-        "static PPU_THREAD_LOCAL int s_icall_depth = 0;",
-        """static PPU_THREAD_LOCAL int s_icall_depth = 0;
-extern "C" int* ps3_ppu_dispatch_depth_slot(void) { return &s_icall_depth; }""",
-    )
-
-    patch_ppu_icall_cache(root)
-
     # Implement HDD deletion against the app-owned writable overlays. The
     # imported /dev_bdvd image remains read-only and cannot be unlinked/rmdir'd.
     replace_once(
