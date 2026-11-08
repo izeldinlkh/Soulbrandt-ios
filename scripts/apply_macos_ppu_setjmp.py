@@ -74,6 +74,11 @@ def patch_chunk(path: Path):
                 raise RuntimeError(f"{path}: longjmp function signature not found")
             start, brace, end = found
             body = source[brace + 1:end]
+            zero = "ctx->gpr[3] = (int64_t)(int32_t)(0);"
+            if body.count(zero) != 1:
+                raise RuntimeError(
+                    f"{path}: expected one final r3=0 restore in func_01674A5C, found {body.count(zero)}"
+                )
             snap = body.find("PPU_MM_SNAP")
             if snap >= 0:
                 line_end = body.find("\n", snap)
@@ -88,12 +93,6 @@ def patch_chunk(path: Path):
 
             # This is the macOS implementation's point after the guest register
             # restore and immediately before the function returns to its caller.
-            func = source[start:source.find("}", insert_at) + 1]
-            zero = "ctx->gpr[3] = (int64_t)(int32_t)(0);"
-            if func.count(zero) != 1:
-                raise RuntimeError(
-                    f"{path}: expected one final r3=0 restore in func_01674A5C, found {func.count(zero)}"
-                )
             z = source.find(zero, start)
             ret = source.find("return;", z)
             if ret < 0 or ret > end + len(prologue):
