@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdlib>
+#include <atomic>
+#include <thread>
 
 typedef void (*ps3_guest_caller_fn)(uint32_t opd_addr,
                                     uint64_t arg0, uint64_t arg1,
@@ -12,11 +14,15 @@ typedef void (*ps3_guest_caller_fn)(uint32_t opd_addr,
                                     uint64_t arg6, uint64_t arg7);
 extern "C" {
 ps3_guest_caller_fn g_ps3_guest_caller = nullptr;
+uint32_t g_ppu_main_stack_addr = 0;
+uint32_t g_ppu_main_stack_size = 0;
 }
 
 static uint32_t g_guest_opd;
 static uint64_t g_guest_args[8];
 static unsigned g_guest_call_count;
+static std::atomic<int> g_run_called{0};
+static uint32_t g_run_stack_top;
 
 extern "C" uint64_t ppu_guest_call(uint32_t opd_addr,
                                     uint64_t arg0, uint64_t arg1,
@@ -52,7 +58,14 @@ extern "C" uint32_t ppu_load_elf(const char *path)
     return g_load_calls == 1 ? 0x1000u : 0x2000u;
 }
 extern "C" void cellGame_init_from_paramsfo(const char *path) { assert(path && std::strlen(path) > 0); ++g_paramsfo_init_calls; }
-extern "C" int ppu_run(uint32_t, uint32_t) { return 0; }
+extern "C" int ppu_run(uint32_t, uint32_t stack_top)
+{
+    g_run_stack_top = stack_top;
+    assert(g_ppu_main_stack_addr == 0x0FE00000u);
+    assert(g_ppu_main_stack_size == 0x00100000u);
+    g_run_called.store(1, std::memory_order_release);
+    return 0;
+}
 extern "C" void ppu_recomp_register(void) { ++g_recomp_register_calls; }
 extern "C" void ppu_hle_init(void) { ++g_hle_init_calls; }
 extern "C" void ppu_sysprx_register(void) { ++g_sysprx_register_calls; }
