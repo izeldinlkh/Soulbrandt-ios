@@ -16,6 +16,10 @@ void ppu_fs_register(void);
 void lv2_init_syscalls(void);
 void cellGame_init_from_paramsfo(const char *sfo_path);
 int ppu_run(uint32_t entry_opd, uint32_t stack_top);
+/* Match the macOS runner: sys_ppu_thread_get_stack_information must report
+ * the same guest stack that the main PPU context actually uses. */
+extern uint32_t g_ppu_main_stack_addr;
+extern uint32_t g_ppu_main_stack_size;
 uint32_t ppu_function_count(void);
 uint32_t ps3_hle_count(void);
 }
@@ -42,6 +46,12 @@ static void soulbrandt_guest_callback(uint32_t opd_addr,
     (void)ppu_guest_call(opd_addr, arg0, arg1, arg2, arg3,
                          arg4, arg5, arg6, arg7);
 }
+
+/* Ported from demons-souls-recomp/project/main.cpp. These are guest
+ * addresses, not host pointers. The host stack is separately reserved below. */
+static constexpr uint32_t kGuestMainStackTop = 0x0FF00000u;
+static constexpr uint32_t kGuestMainStackSize = 0x00100000u;
+static constexpr size_t kGuestHostStackSize = 256u * 1024u * 1024u;
 
 static uint32_t s_entry_opd;
 static int32_t s_ready;
@@ -119,7 +129,7 @@ static void *soulbrandt_ppu_run_thread(void *)
     /* Match the upstream des_boot harness' default main guest stack. Keep the
      * long-running guest off the Swift/UI thread; ppu_run owns its PPU context. */
     (void)::setenv("PS3_BOOT_PATH", "/dev_bdvd/PS3_GAME/USRDIR/EBOOT.BIN", 1);
-    const int result = ppu_run(s_entry_opd, 0x0FF00000u);
+    const int result = ppu_run(s_entry_opd, kGuestMainStackTop);
     std::lock_guard<std::mutex> lock(s_host_mutex);
     s_run_result = result;
     s_run_state = 2;
@@ -134,11 +144,18 @@ extern "C" int32_t soulbrandt_ppu_host_start_game(void)
     if (s_run_state != 0) return -3;          /* one boot per loaded image/process */
     pthread_attr_t attr;
     if (pthread_attr_init(&attr) != 0) return -4;
-    const int stack_result = pthread_attr_setstacksize(&attr, 8u * 1024u * 1024u);
+    /* The macOS PPU runner reserves 256 MiB for the host stack. The lifted
+     * guest's call/trampoline chains can exceed the old 8 MiB iOS stack; keep
+     * the main PPU thread consistent with sys_ppu_thread_create workers. */
+    const int stack_result = pthread_attr_setstacksize(&attr, kGuestHostStackSize);
     if (stack_result != 0) {
         pthread_attr_destroy(&attr);
         return -5;
     }
+    /* Same 1 MiB guest main stack and bounds advertised by the macOS runner. */
+    g_ppu_main_stack_addr = kGuestMainStackTop - kGuestMainStackSize;
+    g_ppu_main_stack_size = kGuestMainStackSize;
+
     pthread_t thread;
     s_run_state = 1;
     const int create_result = pthread_create(&thread, &attr, soulbrandt_ppu_run_thread, nullptr);
