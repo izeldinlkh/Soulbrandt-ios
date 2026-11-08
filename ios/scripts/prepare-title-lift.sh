@@ -99,6 +99,9 @@ python3 "$PS3_ROOT/tools/ppu_lifter.py" "$EBOOT" \
 echo "[title-lift] applying the repository's boot patches"
 python3 "$ROOT/scripts/apply_boot_patches.py" "$RECOMP" --title BLUS30443
 
+echo "[title-lift] porting the macOS guest setjmp/longjmp bridge"
+python3 "$ROOT/scripts/apply_macos_ppu_setjmp.py" "$RECOMP"
+
 
 echo "[title-lift] extracting and lifting SPU images and SPURS jobs"
 python3 "$ROOT/scripts/build_spu.py" --eboot "$EBOOT" \
