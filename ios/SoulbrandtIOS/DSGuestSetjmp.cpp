@@ -61,7 +61,7 @@ extern "C" void* ds_sj_arm(ppu_context* ctx, void* host_frame)
         s->n--;
         static int warned;
         if (!warned++)
-            fprintf(stderr, "[setjmp] more than %d armed jmp_bufs on one thread\\n", SJ_MAX);
+            fprintf(stderr, "[setjmp] more than %d armed jmp_bufs on one thread\n", SJ_MAX);
     }
 
     SjEntry& e = s->e[s->n++];
@@ -81,7 +81,7 @@ extern "C" void ds_sj_jump(ppu_context* ctx, uint32_t buf, uint32_t from_lr)
         SjEntry& e = s->e[i];
         if (e.buf != buf || e.frame <= here) continue;
         if (sj_log())
-            fprintf(stderr, "[setjmp] longjmp from %08X to buf %08X (entry %d of %d) val %d\\n",
+            fprintf(stderr, "[setjmp] longjmp from %08X to buf %08X (entry %d of %d) val %d\n",
                     from_lr, buf, i, s->n, (int)ctx->gpr[3]);
         s->n = i + 1;
         *ps3_ppu_dispatch_depth_slot() = e.depth;
@@ -95,7 +95,7 @@ extern "C" void ds_sj_jump(ppu_context* ctx, uint32_t buf, uint32_t from_lr)
     static int warned;
     if (warned < 8) {
         warned++;
-        fprintf(stderr, "[setjmp] longjmp from %08X to buf %08X with no armed setjmp: falling through\\n",
+        fprintf(stderr, "[setjmp] longjmp from %08X to buf %08X with no armed setjmp: falling through\n",
                 from_lr, buf);
     }
 }
