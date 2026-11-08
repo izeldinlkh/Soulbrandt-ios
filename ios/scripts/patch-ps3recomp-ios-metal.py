@@ -20,6 +20,30 @@ def replace_once(root: Path, relative: str, old: str, new: str, marker: str | No
     path.write_text(source.replace(old, new, 1))
 
 
+def replace_one_of(root: Path, relative: str, olds: list[str], new: str) -> None:
+    path = root / relative
+    source = path.read_text()
+    if new in source:
+        return
+    matches = [old for old in olds if old in source]
+    if len(matches) != 1:
+        raise SystemExit(f"{relative}: expected one of {len(olds)} migration anchors, found {len(matches)}")
+    path.write_text(source.replace(matches[0], new, 1))
+
+
+def replace_if_present(root: Path, relative: str, old: str, new: str) -> None:
+    path = root / relative
+    source = path.read_text()
+    if new in source:
+        return
+    count = source.count(old)
+    if count == 0:
+        return
+    if count != 1:
+        raise SystemExit(f"{relative}: expected at most one migration anchor, found {count}")
+    path.write_text(source.replace(old, new, 1))
+
+
 def patch_ppu_icall_cache(root: Path) -> None:
     """Port the macOS positive-only PPU indirect-call cache, idempotently."""
     path = root / "runtime/ppu/ppu_loader.cpp"
@@ -213,24 +237,61 @@ def main() -> None:
 
     # The macOS runner keeps the loaded PT_LOAD envelope and places argv/envp
     # on the guest main stack, not at a fixed address in the game's data/heap.
-    replace_once(
+    replace_one_of(
         root, "runtime/ppu/ppu_loader.cpp",
-        """extern "C" uint32_t ppu_vm_size = 0;\n""",
-        """extern "C" uint32_t ppu_vm_size = 0;\nstatic uint64_t g_ppu_image_min = 0x100000000ull;\nstatic uint64_t g_ppu_image_max = 0;\n""",
+        [
+            """extern "C" uint32_t ppu_vm_size = 0;
+static uint64_t g_ppu_image_min = 0x100000000ull;
+static uint64_t g_ppu_image_max = 0;
+""",
+            """extern "C" uint32_t ppu_vm_size = 0;
+""",
+        ],
+        """extern "C" uint32_t ppu_vm_size = 0;
+static soulbrandt_guest_elf_range g_ppu_image_ranges[SOULBRANDT_GUEST_MAX_LOAD_RANGES];
+static uint32_t g_ppu_image_range_count = 0;
+""",
     )
-    replace_once(
+
+    replace_one_of(
         root, "runtime/ppu/ppu_loader.cpp",
-        """    g_tls_vaddr = image.tls_vaddr;
-    g_tls_filesz = image.tls_filesz;
-    g_tls_memsz = image.tls_memsz;
-    const uint32_t entry = image.entry_opd;""",
-        """    g_tls_vaddr = image.tls_vaddr;
+        [
+            """    g_tls_vaddr = image.tls_vaddr;
     g_tls_filesz = image.tls_filesz;
     g_tls_memsz = image.tls_memsz;
     g_ppu_image_min = image.load_min_vaddr;
     g_ppu_image_max = image.load_max_vaddr;
     const uint32_t entry = image.entry_opd;""",
+            """    g_tls_vaddr = image.tls_vaddr;
+    g_tls_filesz = image.tls_filesz;
+    g_tls_memsz = image.tls_memsz;
+    const uint32_t entry = image.entry_opd;""",
+        ],
+        """    g_tls_vaddr = image.tls_vaddr;
+    g_tls_filesz = image.tls_filesz;
+    g_tls_memsz = image.tls_memsz;
+    g_ppu_image_range_count = image.load_range_count;
+    memcpy(g_ppu_image_ranges, image.load_ranges,
+           sizeof(g_ppu_image_ranges[0]) * g_ppu_image_range_count);
+    const uint32_t entry = image.entry_opd;""",
     )
+
+    # Upgrade an already-patched checkout from the earlier PT_LOAD bounding box.
+    replace_if_present(
+        root, "runtime/ppu/ppu_loader.cpp",
+        r"""        if (g_ppu_image_min < top && g_ppu_image_max > entry_sp) {
+            fprintf(stderr, "[ppu] entry argument stack overlaps loaded image\n");
+            return -1;
+        }""",
+        r"""        for (uint32_t i = 0; i < g_ppu_image_range_count; ++i) {
+            const soulbrandt_guest_elf_range& range = g_ppu_image_ranges[i];
+            if (entry_sp < range.end && top > range.begin) {
+                fprintf(stderr, "[ppu] entry argument stack overlaps loaded image\n");
+                return -1;
+            }
+        }""",
+    )
+
     replace_once(
         root, "runtime/ppu/ppu_loader.cpp",
         r"""        uint32_t argv_base = 0x00B00000u;          /* scratch in the .data/heap gap */
@@ -283,9 +344,12 @@ def main() -> None:
             return -1;
         }
         const uint32_t entry_sp = (uint32_t)(top - reserve);
-        if (g_ppu_image_min < top && g_ppu_image_max > entry_sp) {
-            fprintf(stderr, "[ppu] entry argument stack overlaps loaded image\n");
-            return -1;
+        for (uint32_t i = 0; i < g_ppu_image_range_count; ++i) {
+            const soulbrandt_guest_elf_range& range = g_ppu_image_ranges[i];
+            if (entry_sp < range.end && top > range.begin) {
+                fprintf(stderr, "[ppu] entry argument stack overlaps loaded image\n");
+                return -1;
+            }
         }
         ctx.gpr[1] = entry_sp;
         for (uint32_t off = 0; off < entry_frame; off += 8)
