@@ -94,7 +94,7 @@ python3 "$PS3_ROOT/tools/ppu_lifter.py" "$EBOOT" \
   --functions "$FUNCTIONS" --hle-stubs "$IMPORTS" \
   --override-funcs "$OVERRIDES" \
   --insn-hooks "@$ROOT/port/insn_hooks.txt" \
-  --shadow-stack --chunk-lines 150000 --output "$RECOMP" -j "$JOBS"
+  --code-end 0x16bb5e4 --chunks 128 --output "$RECOMP" -j "$JOBS"
 
 echo "[title-lift] applying the repository's boot patches"
 python3 "$ROOT/scripts/apply_boot_patches.py" "$RECOMP" --title BLUS30443
