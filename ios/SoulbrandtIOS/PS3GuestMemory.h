@@ -7,6 +7,13 @@
 extern "C" {
 #endif
 
+#define SOULBRANDT_GUEST_MAX_LOAD_RANGES 128
+
+typedef struct soulbrandt_guest_elf_range {
+    uint64_t begin;
+    uint64_t end;
+} soulbrandt_guest_elf_range;
+
 typedef struct soulbrandt_guest_elf_info {
     uint32_t entry_opd;
     uint32_t tls_vaddr;
@@ -15,6 +22,8 @@ typedef struct soulbrandt_guest_elf_info {
     uint32_t load_segment_count;
     uint64_t load_min_vaddr;
     uint64_t load_max_vaddr;
+    uint32_t load_range_count;
+    soulbrandt_guest_elf_range load_ranges[SOULBRANDT_GUEST_MAX_LOAD_RANGES];
 } soulbrandt_guest_elf_info;
 
 /* Reserve the complete 32-bit PS3 guest address space. The returned base is
