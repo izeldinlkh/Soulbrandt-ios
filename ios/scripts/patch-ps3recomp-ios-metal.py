@@ -176,6 +176,67 @@ static FILE* ps3_disc_fopen(const char* path)
     if (!file) ps3_disc_close(cookie);
     return file;
 }
+
+/* NPDRM resolution expects a host path. Materialize VFS files temporarily so
+ * the macOS EDAT resolver also works for imported folders and ISO mounts. */
+static int ps3_disc_materialize(const char* guest, char* temp_dir, size_t dir_cap,
+                               char* temp_path, size_t path_cap)
+{
+    const char* tmp = getenv("TMPDIR");
+    if (!tmp || !*tmp) tmp = "/tmp";
+    if (snprintf(temp_dir, dir_cap, "%s/ps3recomp-disc-XXXXXX", tmp) >= (int)dir_cap)
+        return -1;
+    if (!mkdtemp(temp_dir)) return -1;
+    const char* base = strrchr(guest, '/');
+    base = base ? base + 1 : guest;
+    if (!*base) base = "disc-root";
+    if (snprintf(temp_path, path_cap, "%s/%s", temp_dir, base) >= (int)path_cap) {
+        rmdir(temp_dir); return -1;
+    }
+    FILE* in = ps3_disc_fopen(guest);
+    FILE* out = in ? fopen(temp_path, "wb") : nullptr;
+    if (!in || !out) {
+        if (in) fclose(in);
+        if (out) fclose(out);
+        rmdir(temp_dir);
+        return -1;
+    }
+    uint8_t buffer[1024 * 1024];
+    int failed = 0;
+    for (;;) {
+        size_t n = fread(buffer, 1, sizeof buffer, in);
+        if (n && fwrite(buffer, 1, n, out) != n) { failed = 1; break; }
+        if (n < sizeof buffer) {
+            if (ferror(in)) failed = 1;
+            break;
+        }
+    }
+    if (fclose(in) != 0 || fclose(out) != 0) failed = 1;
+    if (failed) { unlink(temp_path); rmdir(temp_dir); return -1; }
+    return 0;
+}
+
+static FILE* ps3_disc_open_resolved(const char* guest)
+{
+    FILE* probe = ps3_disc_fopen(guest);
+    if (!probe) return nullptr;
+    unsigned char magic[4] = {0};
+    size_t got = fread(magic, 1, sizeof magic, probe);
+    fseek(probe, 0, SEEK_SET);
+    if (!(got == 4 && magic[0] == 'N' && magic[1] == 'P' && magic[2] == 'D'))
+        return probe;
+
+    fclose(probe);
+    char temp_dir[1024] = {0}, temp_path[1200] = {0}, dec_path[1200] = {0};
+    if (ps3_disc_materialize(guest, temp_dir, sizeof temp_dir,
+                             temp_path, sizeof temp_path) != 0)
+        return nullptr;
+    const char* use = edat_resolve(temp_path, dec_path, sizeof dec_path);
+    FILE* resolved = fopen(use, "rb");
+    unlink(temp_path);
+    rmdir(temp_dir);
+    return resolved;
+}
 #endif
 
 /* ---- handlers ---- */''',
@@ -196,17 +257,54 @@ static FILE* ps3_disc_fopen(const char* path)
         if ((flags & 0x3u) != CELL_FS_O_RDONLY) {
             ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return;
         }
-        FILE* disc_file = ps3_disc_fopen(gpath);
+        FILE* disc_file = ps3_disc_open_resolved(gpath);
         if (!disc_file) { ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_ENOENT; return; }
         int disc_fd = fd_alloc_file(disc_file);
         if (disc_fd < 0) { fclose(disc_file); ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_EIO; return; }
         if (fd_ptr) vm_write32(fd_ptr, (uint32_t)disc_fd);
+        g_fd_usm[disc_fd] = (strstr(gpath, ".usm") != nullptr) ? 1 : 0;
         strncpy(g_fd_path[disc_fd], gpath, sizeof g_fd_path[disc_fd] - 1);
+        g_fd_path[disc_fd][sizeof g_fd_path[disc_fd] - 1] = 0;
         ctx->gpr[3] = CELL_OK;
         return;
     }
 #endif
     host_path(hpath, sizeof hpath, gpath);''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''static void cellFsSdataOpen(ppu_context* ctx)
+{
+    char gpath[1024], hpath[1100];
+    guest_strcpy(gpath, (uint32_t)ctx->gpr[3], sizeof gpath);
+    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
+    host_path(hpath, sizeof hpath, gpath);''',
+        '''static void cellFsSdataOpen(ppu_context* ctx)
+{
+    char gpath[1024], hpath[1100];
+    guest_strcpy(gpath, (uint32_t)ctx->gpr[3], sizeof gpath);
+    uint32_t fd_ptr = (uint32_t)ctx->gpr[5];
+#if defined(__APPLE__)
+    char disc_temp_dir[1024] = {0}, disc_temp_path[1200] = {0};
+    if (ps3_is_disc_path(gpath)) {
+        if (ps3_disc_materialize(gpath, disc_temp_dir, sizeof disc_temp_dir,
+                                 disc_temp_path, sizeof disc_temp_path) != 0) {
+            ctx->gpr[3] = (uint64_t)(int64_t)CELL_FS_ENOENT; return;
+        }
+        snprintf(hpath, sizeof hpath, "%s", disc_temp_path);
+    } else
+#endif
+    host_path(hpath, sizeof hpath, gpath);''',
+    )
+    replace_once(
+        root, "runtime/ppu/ppu_fs.cpp",
+        '''    int hfd = open(hpath, O_RDONLY | O_BINARY, 0666);
+    if (hfd < 0) {''',
+        '''    int hfd = open(hpath, O_RDONLY | O_BINARY, 0666);
+#if defined(__APPLE__)
+    if (disc_temp_path[0]) { unlink(disc_temp_path); rmdir(disc_temp_dir); }
+#endif
+    if (hfd < 0) {''',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
