@@ -1,4 +1,4 @@
-#include <cstdint>
+#include <stdint.h>
 
 // Keep the no-game fallback's table layout identical to the macOS lifter's
 // HEADER_PREAMBLE. The generated header supplies the complete ppu_context;
