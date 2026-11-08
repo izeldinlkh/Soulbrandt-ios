@@ -184,13 +184,14 @@ static int ps3_disc_materialize(const char* guest, char* temp_dir, size_t dir_ca
 {
     const char* tmp = getenv("TMPDIR");
     if (!tmp || !*tmp) tmp = "/tmp";
-    if (snprintf(temp_dir, dir_cap, "%s/ps3recomp-disc-XXXXXX", tmp) >= (int)dir_cap)
-        return -1;
+    int dir_len = snprintf(temp_dir, dir_cap, "%s/ps3recomp-disc-XXXXXX", tmp);
+    if (dir_len < 0 || (size_t)dir_len >= dir_cap) return -1;
     if (!mkdtemp(temp_dir)) return -1;
     const char* base = strrchr(guest, '/');
     base = base ? base + 1 : guest;
     if (!*base) base = "disc-root";
-    if (snprintf(temp_path, path_cap, "%s/%s", temp_dir, base) >= (int)path_cap) {
+    int path_len = snprintf(temp_path, path_cap, "%s/%s", temp_dir, base);
+    if (path_len < 0 || (size_t)path_len >= path_cap) {
         rmdir(temp_dir); return -1;
     }
     FILE* in = ps3_disc_fopen(guest);
@@ -211,7 +212,8 @@ static int ps3_disc_materialize(const char* guest, char* temp_dir, size_t dir_ca
             break;
         }
     }
-    if (fclose(in) != 0 || fclose(out) != 0) failed = 1;
+    if (fclose(in) != 0) failed = 1;
+    if (fclose(out) != 0) failed = 1;
     if (failed) { unlink(temp_path); rmdir(temp_dir); return -1; }
     return 0;
 }
@@ -232,7 +234,7 @@ static FILE* ps3_disc_open_resolved(const char* guest)
                              temp_path, sizeof temp_path) != 0)
         return nullptr;
     const char* use = edat_resolve(temp_path, dec_path, sizeof dec_path);
-    FILE* resolved = fopen(use, "rb");
+    FILE* resolved = use ? fopen(use, "rb") : nullptr;
     unlink(temp_path);
     rmdir(temp_dir);
     return resolved;

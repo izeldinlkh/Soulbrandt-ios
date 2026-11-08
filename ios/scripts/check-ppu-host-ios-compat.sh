@@ -50,17 +50,18 @@ COMMON=(
   -I"$PS3_ROOT/third_party/mbedtls/include"
 )
 
-# These are the game-agnostic pieces of des_boot's PPU startup path. Compile
-# them against Apple's SDK before attempting to add them to the app target.
-for source in \
-  runtime/ppu/ppu_loader.cpp \
-  runtime/ppu/ppu_hle.cpp \
-  runtime/ppu/ppu_fs.cpp \
-  runtime/ppu/ppu_sysprx.cpp
-do
-  echo "[ios-ppu] syntax-checking $source"
-  xcrun --sdk iphoneos clang++ "${COMMON[@]}" "$PS3_ROOT/$source"
-done
+# The generated PPU header is title-specific. In CI there is no decrypted
+# EBOOT to lift, so compile the shared filesystem host against the real runtime
+# ppu_context definition and a minimal generated-header shim. The full PPU
+# loader/HLE/SysPRX compile is performed by build-ppu-host-ios.sh once a lift
+# exists and supplies its real ppu_recomp.h.
+PPU_STUB_DIR="$(mktemp -d)"
+trap 'rm -rf "$PPU_STUB_DIR"' EXIT
+cat > "$PPU_STUB_DIR/ppu_recomp.h" <<'EOF'
+#include "ppu_context.h"
+EOF
+echo "[ios-ppu] syntax-checking runtime/ppu/ppu_fs.cpp with macOS PPU context"
+xcrun --sdk iphoneos clang++ "${COMMON[@]}" -I"$PPU_STUB_DIR" "$PS3_ROOT/runtime/ppu/ppu_fs.cpp"
 
 # The macOS PPU stack-reporting fix lives in the C LV2 syscall layer, and the
 # ELF bounds used by its entry-stack check are produced by the app's C loader.

@@ -23,4 +23,17 @@ python3 "$ROOT/ios/scripts/apply_macos_ppu_setjmp.py" "$TMP"
 grep -Fq 'ds_sj_arm(ctx, __builtin_frame_address(0))' "$TMP/ppu_recomp_0.cpp"
 grep -Fq 'ds_sj_jump(ctx, _sj_buf, _sj_lr);' "$TMP/ppu_recomp_0.cpp"
 grep -Fq '#define DS_SETJMP(env) _setjmp(env)' "$TMP/ppu_recomp_0.cpp"
+
+# Compile the actual macOS-derived host bridge against a minimal generated
+# ppu_context header so this smoke test validates its C++ as well as rewriting.
+mkdir -p "$TMP/bridge"
+cat > "$TMP/bridge/ppu_recomp.h" <<'H'
+#include <stdint.h>
+typedef struct ppu_context {
+    uint64_t gpr[32];
+    uint64_t lr;
+} ppu_context;
+#define PPU_THREAD_LOCAL thread_local
+H
+c++ -std=c++17 -fsyntax-only -I"$TMP/bridge" "$ROOT/ios/SoulbrandtIOS/DSGuestSetjmp.cpp"
 echo "macOS PPU setjmp smoke test passed"
