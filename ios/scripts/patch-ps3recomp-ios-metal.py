@@ -1218,7 +1218,6 @@ static void pad_poll_ios_native(void)
         memset(hs, 0, sizeof *hs);
         hs->connected = i == 0 && state.connected != 0;
         hs->analog_lx = hs->analog_ly = hs->analog_rx = hs->analog_ry = 128;
-        s_poll_dev[i] = RUMBLE_NONE;
         if (i == 0) {
             hs->buttons = state.buttons;
             hs->analog_lx = state.left_x;
