@@ -50,7 +50,7 @@ def patch_macos_disc_vfs(root: Path) -> None:
     include = '#include "ps3emu/guest_call.h" /* ps3_invoke_guest: AIO completion is a guest OPD */'
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp", include,
-        include + '\\n#include "PS3DiscVFSBridge.h"',
+        include + '\n#include "PS3DiscVFSBridge.h"',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
@@ -73,7 +73,7 @@ def patch_macos_disc_vfs(root: Path) -> None:
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
         'static DIR*  g_dirs[FS_MAX];',
-        'static DIR*  g_dirs[FS_MAX];\\n#if defined(__APPLE__)\\nstatic uint8_t g_disc_dirs[FS_MAX];\\nstatic uint32_t g_disc_dir_index[FS_MAX];\\nstatic char g_disc_dir_path[FS_MAX][1024];\\n#endif',
+        'static DIR*  g_dirs[FS_MAX];\n#if defined(__APPLE__)\nstatic uint8_t g_disc_dirs[FS_MAX];\nstatic uint32_t g_disc_dir_index[FS_MAX];\nstatic char g_disc_dir_path[FS_MAX][1024];\n#endif',
     )
     replace_once(
         root, "runtime/ppu/ppu_fs.cpp",
