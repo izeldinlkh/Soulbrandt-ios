@@ -12,7 +12,11 @@ printf '%s\n' 'extern "C" int fixture_spu_registration(void) { return 1; }' > "$
 
 cat > "$TMP/recompiled/ppu_recomp.h" <<'EOF'
 #include <stdint.h>
-struct ppu_context;
+#define PPU_THREAD_LOCAL thread_local
+typedef struct ppu_context {
+    uint64_t gpr[32];
+    uint64_t lr;
+} ppu_context;
 typedef struct {
     uint64_t addr;
     void (*func)(ppu_context*);
