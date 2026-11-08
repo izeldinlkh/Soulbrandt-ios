@@ -235,7 +235,7 @@ def main() -> None:
         marker="soulbrandt_guest_load_elf(file, (uint64_t)sz, &image)",
     )
 
-    # The macOS runner keeps the loaded PT_LOAD envelope and places argv/envp
+    # The macOS runner keeps exact PT_LOAD ranges and places argv/envp
     # on the guest main stack, not at a fixed address in the game's data/heap.
     replace_one_of(
         root, "runtime/ppu/ppu_loader.cpp",
