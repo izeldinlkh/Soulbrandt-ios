@@ -838,11 +838,16 @@ int rsx_metal_backend_init(u32 width, u32 height, const char* title)
     replace_once(
         root, "libs/video/rsx_metal_backend.m",
         """#if TARGET_OS_IPHONE
-        s_headless = 1;
-        rc = create_offscreen();
-#else
-        rc = s_headless ? create_offscreen() : create_window(title);
-#endif""",
+        if (s_layer) {
+            s_layer.device = s_dev;
+            s_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+            s_layer.framebufferOnly = YES;
+            s_layer.drawableSize = CGSizeMake((CGFloat)s_width, (CGFloat)s_height);
+            rc = 0;
+        } else {
+            rc = create_offscreen();
+        }
+#else""",
         """#if TARGET_OS_IPHONE
         if (s_layer) {
             s_layer.device = s_dev;
@@ -1033,10 +1038,11 @@ static SDL_AudioDeviceID s_sdl_audio_dev = 0;""",
     )
     replace_once(
         root, "libs/input/cellPad.c",
-        """    hs->press_r1       = (btns & CELL_PAD_CTRL_R1)       ? 255 : 0;
-}""",
-        """    hs->press_r1       = (btns & CELL_PAD_CTRL_R1)       ? 255 : 0;
-}
+        """#endif /* PAD_BACKEND_XINPUT */
+
+/* ---------------------------------------------------------------------------
+ * SDL2 backend""",
+        """#endif /* PAD_BACKEND_XINPUT */
 
 #if PAD_BACKEND_IOS_NATIVE
 typedef struct SoulbrandtPadState {
@@ -1047,9 +1053,6 @@ typedef struct SoulbrandtPadState {
 } SoulbrandtPadState;
 extern void soulbrandt_pad_state_read(SoulbrandtPadState* out_state);
 
-/* GameController is sampled by Swift. This poll copies its latest PS3-format
- * packet into cellPad's normal host state, so the existing guest API remains
- * unchanged and no SDL controller enumeration runs on iOS. */
 static void pad_poll_ios_native(void)
 {
     SoulbrandtPadState state = { 0, 0, 128, 128, 128, 128, 0, 0 };
@@ -1068,15 +1071,25 @@ static void pad_poll_ios_native(void)
             hs->analog_ry = state.right_y;
             hs->trigger_l2 = state.analog_l2;
             hs->trigger_r2 = state.analog_r2;
-            pad_press_from_buttons(hs);
+            hs->press_up = (state.buttons & CELL_PAD_CTRL_UP) ? 255 : 0;
+            hs->press_down = (state.buttons & CELL_PAD_CTRL_DOWN) ? 255 : 0;
+            hs->press_left = (state.buttons & CELL_PAD_CTRL_LEFT) ? 255 : 0;
+            hs->press_right = (state.buttons & CELL_PAD_CTRL_RIGHT) ? 255 : 0;
+            hs->press_triangle = (state.buttons & CELL_PAD_CTRL_TRIANGLE) ? 255 : 0;
+            hs->press_circle = (state.buttons & CELL_PAD_CTRL_CIRCLE) ? 255 : 0;
+            hs->press_cross = (state.buttons & CELL_PAD_CTRL_CROSS) ? 255 : 0;
+            hs->press_square = (state.buttons & CELL_PAD_CTRL_SQUARE) ? 255 : 0;
+            hs->press_l1 = (state.buttons & CELL_PAD_CTRL_L1) ? 255 : 0;
+            hs->press_r1 = (state.buttons & CELL_PAD_CTRL_R1) ? 255 : 0;
         }
     }
 }
-
-/* Native iOS input is fed by GameController; no SDL/XInput lifecycle exists. */
 static void pad_init_backend(void) {}
 static void pad_shutdown_backend(void) {}
-#endif""",
+#endif /* PAD_BACKEND_IOS_NATIVE */
+
+/* ---------------------------------------------------------------------------
+ * SDL2 backend""",
     )
     replace_once(
         root, "libs/input/cellPad.c",
