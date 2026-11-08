@@ -2,7 +2,7 @@ name: iOS shell build
 
 on:
   push:
-    branches: [ios-port-work]
+    branches: [ios-port-work, ios-macos-ppu-port]
     paths:
       - "ios/**"
       - ".github/workflows/ios-build.yml"
@@ -118,6 +118,8 @@ jobs:
         run: bash ios/scripts/run-ppu-lift-ios-smoke-test.sh "$RUNNER_TEMP/ps3recomp"
       - name: Test private title-lift pipeline preflight
         run: bash ios/scripts/run-title-lift-preflight-smoke-test.sh
+      - name: Test macOS-derived PPU setjmp/longjmp bridge
+        run: bash ios/scripts/run-macos-ppu-setjmp-smoke-test.sh
       - name: Build optional title PPU/SPU lift archive for iOS
         run: |
           bash ios/scripts/build-ppu-lift-ios.sh "$RUNNER_TEMP/ps3recomp" \
