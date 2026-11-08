@@ -4,6 +4,7 @@ set -euo pipefail
 PS3_ROOT="${1:?usage: build-ppu-host-ios.sh /path/to/ps3recomp [output-dir]}"
 OUT="${2:-$PWD/ppu-host-ios-build}"
 PORT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+python3 "$PORT_ROOT/ios/scripts/patch-ps3recomp-ios-metal.py" "$PS3_ROOT"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 CXX="$(xcrun --sdk iphoneos -f clang++)"
 mkdir -p "$OUT/objects" "$OUT/generated" "$OUT/include"
