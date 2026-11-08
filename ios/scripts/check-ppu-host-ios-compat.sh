@@ -5,6 +5,9 @@ PS3_ROOT="${1:?usage: check-ppu-host-ios-compat.sh /path/to/ps3recomp}"
 PORT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 python3 "$PORT_ROOT/ios/scripts/patch-ps3recomp-ios-metal.py" "$PS3_ROOT"
 grep -Fq 'vm_write64(ctx->gpr[1] + 0x28, ctx->gpr[2])' "$PS3_ROOT/tools/ppu_lifter.py"
+grep -Fq 'uint32_t g_ppu_main_stack_addr = 0;' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
+grep -Fq 'if (!t || !t->stack_size)' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
+grep -Fq 'main_stack_info(&sa, &ss);' "$PS3_ROOT/runtime/syscalls/sys_ppu_thread.c"
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
 COMMON=(
   -fsyntax-only
